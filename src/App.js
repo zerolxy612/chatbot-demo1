@@ -3,19 +3,26 @@ import ReactMarkdown from 'react-markdown';
 import './App.css';
 import { callOpenAI } from './api';
 
-const MODEL_OPTIONS = {
-  "HKGAI-V1-Thinking-RAG-Chat": "thinking-websearch-reflink",
-  "HKGAI-V1-Thinking-RAG-NOSEARCH-Chat": "thinking",
-  "HKGAI-V1-RAG-Chat": "websearch-reflink",
-  "HKGAI-V1-RAG-NOSEARCH-Chat": "",
-};
-
 function App() {
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState('');
-  const [selectedModel, setSelectedModel] = useState('HKGAI-V1-Thinking-RAG-Chat');
+  const [isNetworkEnabled, setIsNetworkEnabled] = useState(true); // 联网模式
+  const [isThinkingEnabled, setIsThinkingEnabled] = useState(true); // 思考模式
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef(null);
+
+  // 根据开关状态生成模型名称
+  const getModelName = () => {
+    if (isThinkingEnabled && isNetworkEnabled) {
+      return "HKGAI-V1-Thinking-RAG-Chat";
+    } else if (isThinkingEnabled && !isNetworkEnabled) {
+      return "HKGAI-V1-Thinking-RAG-NOSEARCH-Chat";
+    } else if (!isThinkingEnabled && isNetworkEnabled) {
+      return "HKGAI-V1-RAG-Chat";
+    } else {
+      return "HKGAI-V1-RAG-NOSEARCH-Chat";
+    }
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -89,7 +96,7 @@ function App() {
     setIsLoading(true);
 
     try {
-      const response = await callOpenAI(selectedModel, currentInput);
+      const response = await callOpenAI(getModelName(), currentInput);
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
@@ -160,19 +167,29 @@ function App() {
       <div className="chat-container">
         <div className="chat-header">
           <h1>AI 聊天机器人</h1>
-          <div className="model-selector">
-            <label htmlFor="model-select">选择模型：</label>
-            <select
-              id="model-select"
-              value={selectedModel}
-              onChange={(e) => setSelectedModel(e.target.value)}
-            >
-              {Object.entries(MODEL_OPTIONS).map(([model, description]) => (
-                <option key={model} value={model}>
-                  {model} ({description || 'basic'})
-                </option>
-              ))}
-            </select>
+          <div className="model-controls">
+            <div className="model-name">
+              <span className="model-label">HKGAI-V1</span>
+              <span className="model-status">
+                {isThinkingEnabled && "🧠"} {isNetworkEnabled && "🌐"}
+              </span>
+            </div>
+            <div className="control-buttons">
+              <button
+                className={`control-btn ${isThinkingEnabled ? 'active' : ''}`}
+                onClick={() => setIsThinkingEnabled(!isThinkingEnabled)}
+                title="思考模式"
+              >
+                🧠 思考
+              </button>
+              <button
+                className={`control-btn ${isNetworkEnabled ? 'active' : ''}`}
+                onClick={() => setIsNetworkEnabled(!isNetworkEnabled)}
+                title="联网模式"
+              >
+                🌐 联网
+              </button>
+            </div>
           </div>
         </div>
 
@@ -215,8 +232,10 @@ function App() {
             </div>
           ))}
 
-          {/* 加载状态提示 */}
-          {isLoading && (
+          {/* 加载状态提示 - 只在没有任何回复内容时显示 */}
+          {isLoading && messages.length > 0 && messages[messages.length - 1].role === 'assistant' &&
+           !messages[messages.length - 1].thinkContent && !messages[messages.length - 1].mainContent &&
+           !messages[messages.length - 1].content && (
             <div className="message assistant">
               <div className="message-content">
                 <div className="loading-indicator">
