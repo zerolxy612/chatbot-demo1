@@ -8,7 +8,7 @@ module.exports = function(app) {
       target: 'https://ragtest.hkgai.asia',
       changeOrigin: true,
       pathRewrite: {
-        '^/api/rag': '', // 移除 /api/rag 前缀
+        '^/api/rag': '/api/rag', // 保持 /api/rag 路径
       },
       secure: true,
       logLevel: 'debug'

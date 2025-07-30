@@ -68,6 +68,44 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
+// RAG API路由
+app.post('/api/rag', async (req, res) => {
+  try {
+    const { query, generate_overview, streaming, recalls } = req.body;
+    console.log('Received RAG request:', { query, generate_overview, streaming, recalls });
+
+    const response = await fetch('http://localhost:3004/api/rag', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        query,
+        generate_overview,
+        streaming,
+        recalls
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('RAG API Error:', response.status, errorText);
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log('RAG API Response:', data);
+
+    res.json(data);
+
+  } catch (error) {
+    console.error('RAG API Error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Internal server error', details: error.message });
+    }
+  }
+});
+
 // 健康检查端点
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
