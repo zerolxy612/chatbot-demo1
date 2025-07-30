@@ -192,7 +192,7 @@ function App() {
     console.log('RAG API 请求参数:', requestParams);
 
     try {
-      const response = await fetch('https://ragtest.hkgai.asia/api/rag', {
+      const response = await fetch('/api/rag', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
