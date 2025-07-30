@@ -214,11 +214,18 @@ function App() {
       const requestTime = Math.round(endTime - startTime);
 
       // 处理响应数据并添加到消息列表
+      let content = '';
+      if (data.status === 'mock_response') {
+        content = `⚠️ ${data.message}\n\n找到 ${data.reference.length} 个模拟参考资料`;
+      } else if (data.reference && data.reference.length > 0) {
+        content = `找到 ${data.reference.length} 个相关参考资料`;
+      } else {
+        content = '没有找到相关参考资料';
+      }
+
       const assistantMessage = {
         role: 'assistant',
-        content: data.reference && data.reference.length > 0
-          ? `找到 ${data.reference.length} 个相关参考资料`
-          : '没有找到相关参考资料',
+        content: content,
         ragResponse: data, // 保存完整的响应数据
         isRagResponse: true, // 标记这是RAG响应
         requestTime: requestTime // 保存请求时间
