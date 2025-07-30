@@ -190,6 +190,7 @@ function App() {
 
     // 输出请求参数到控制台
     console.log('RAG API 请求参数:', requestParams);
+    console.log("111")
 
     try {
       const response = await fetch('/api/rag', {
