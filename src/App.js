@@ -176,22 +176,28 @@ function App() {
     // 记录开始时间
     const startTime = performance.now();
 
+    // 准备请求参数
+    const requestParams = {
+      query: currentInput,
+      generate_overview: false,
+      streaming: false,
+      recalls: {
+        serpapi: {},
+        elasticsearch: {},
+        faq: {}
+      }
+    };
+
+    // 输出请求参数到控制台
+    console.log('RAG API 请求参数:', requestParams);
+
     try {
       const response = await fetch('/api/rag', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          query: currentInput,
-          generate_overview: false,
-          streaming: false,
-          recalls: {
-            serpapi: {},
-            elasticsearch: {},
-            faq: {}
-          }
-        })
+        body: JSON.stringify(requestParams)
       });
 
       if (!response.ok) {
