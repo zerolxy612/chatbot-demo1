@@ -314,6 +314,35 @@
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
 }
 
+/* 流式输出动画效果 */
+.message.assistant .message-content[data-streaming="true"] {
+  position: relative;
+}
+
+.message.assistant .message-content[data-streaming="true"]::after {
+  content: "▋";
+  color: #007acc;
+  animation: blink 1s infinite;
+  margin-left: 2px;
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+/* TTFT 特殊样式 */
+.rag-timing .timing-label:contains("TTFT") {
+  color: #28a745;
+}
+
+.rag-timing .timing-value {
+  background: linear-gradient(45deg, #007acc, #28a745);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
 /* 参考资料样式 */
 .rag-references {
   border-top: 1px solid #e0e0e0;

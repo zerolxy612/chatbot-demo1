@@ -163,7 +163,7 @@ function App() {
     }
   };
 
-  // 调用新的RAG接口
+  // 调用新的RAG接口（流式输出）
   const callRagApi = async () => {
     if (!inputValue.trim() || isRagLoading) return;
 
@@ -175,12 +175,13 @@ function App() {
 
     // 记录开始时间
     const startTime = performance.now();
+    let ttft = null; // Time To First Token
 
-    // 准备请求参数
+    // 准备请求参数（启用流式输出）
     const requestParams = {
       query: currentInput,
       generate_overview: false,
-      streaming: false,
+      streaming: true, // 启用流式输出
       recalls: {
         serpapi: {},
         elasticsearch: {},
@@ -190,7 +191,22 @@ function App() {
 
     // 输出请求参数到控制台
     console.log('RAG API 请求参数:', requestParams);
-    console.log("111")
+
+    // 创建一个临时的助手消息用于实时更新
+    const tempMessageId = Date.now();
+    const initialAssistantMessage = {
+      id: tempMessageId,
+      role: 'assistant',
+      content: '🔍 正在搜索相关资料...',
+      isRagResponse: true,
+      isStreaming: true,
+      ragResponse: { reference: [] }
+    };
+
+    setMessages(prev => [...prev, initialAssistantMessage]);
+
+    // 立即关闭加载状态，避免双重显示
+    setIsRagLoading(false);
 
     try {
       const response = await fetch('/api/rag', {
@@ -205,33 +221,145 @@ function App() {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json();
+      // 处理流式响应
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let documents = [];
+      let searchFinished = false;
 
-      // 输出原始API响应到控制台
-      console.log('RAG API 原始响应:', data);
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
 
-      // 计算请求时间
-      const endTime = performance.now();
-      const requestTime = Math.round(endTime - startTime);
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || ''; // 保留不完整的行
 
-      // 处理响应数据并添加到消息列表
-      const assistantMessage = {
-        role: 'assistant',
-        content: data.reference && data.reference.length > 0
-          ? `找到 ${data.reference.length} 个相关参考资料`
-          : '没有找到相关参考资料',
-        ragResponse: data, // 保存完整的响应数据
-        isRagResponse: true, // 标记这是RAG响应
-        requestTime: requestTime // 保存请求时间
-      };
+        for (const line of lines) {
+          if (line.startsWith('data:')) {
+            const dataContent = line.slice(5).trim();
 
-      setMessages(prev => [...prev, assistantMessage]);
+            // 跳过空的 data 行（SSE 格式中的心跳包）
+            if (!dataContent) {
+              continue;
+            }
+
+            try {
+              const data = JSON.parse(dataContent);
+
+              // 记录 TTFT（第一个数据包到达时间）
+              if (ttft === null) {
+                ttft = Math.round(performance.now() - startTime);
+                console.log('TTFT:', ttft + 'ms');
+              }
+
+              // 更新消息内容
+              if (data.position !== undefined) {
+                // 这是一个搜索文档，添加到文档列表
+                documents.push(data);
+
+                setMessages(prev => prev.map(msg => {
+                  if (msg.id === tempMessageId) {
+                    const content = `🔍 已找到 ${documents.length} 个相关资料...`;
+                    const updatedRagResponse = {
+                      ...msg.ragResponse,
+                      reference: [...documents] // 创建新数组确保 React 检测到变化
+                    };
+
+                    return {
+                      ...msg,
+                      content,
+                      ragResponse: updatedRagResponse
+                    };
+                  }
+                  return msg;
+                }));
+
+                // 添加小延迟确保用户能看到渐进式更新
+                await new Promise(resolve => setTimeout(resolve, 50));
+              }
+
+            } catch (e) {
+              // 只在非空内容时记录警告，避免误报空行
+              if (dataContent.length > 0) {
+                console.warn('Failed to parse SSE data:', dataContent, 'Error:', e.message);
+              }
+            }
+          } else if (line.startsWith('event:')) {
+            const event = line.slice(6).trim();
+
+            if (event === 'SEARCH_FINISHED') {
+              searchFinished = true;
+
+              // 搜索完成，更新最终消息
+              // eslint-disable-next-line no-loop-func
+              setMessages(prev => prev.map(msg => {
+                if (msg.id === tempMessageId) {
+                  const finalContent = documents.length > 0
+                    ? `找到 ${documents.length} 个相关参考资料`
+                    : '没有找到相关参考资料';
+
+                  return {
+                    ...msg,
+                    content: finalContent,
+                    isStreaming: false,
+                    ttft: ttft, // 保存 TTFT
+                    ragResponse: {
+                      ...msg.ragResponse,
+                      reference: documents,
+                      search_keywords: currentInput
+                    }
+                  };
+                }
+                return msg;
+              }));
+            } else {
+              // 更新搜索状态
+              const statusMap = {
+                'PROCESS_START': '🚀 开始处理查询...',
+                'TRANSFORM_TO_WEB_SEARCH_START': '🔄 转换搜索查询...',
+                'TRANSFORM_TO_WEB_SEARCH_FINISHED': '✅ 查询转换完成',
+                'SEARCH_START': '🔍 开始搜索资料...',
+                'RERANK_SEARCH_RESULT_START': '📊 重新排序搜索结果...',
+                'RERANK_SEARCH_RESULT_FINISHED': '✅ 搜索完成'
+              };
+
+              const statusText = statusMap[event] || `📋 ${event}`;
+
+              // 只在有状态文本时更新，并添加延迟确保可见性
+              if (statusText && !searchFinished) {
+                // eslint-disable-next-line no-loop-func
+                setMessages(prev => prev.map(msg => {
+                  if (msg.id === tempMessageId) {
+                    return {
+                      ...msg,
+                      content: statusText
+                    };
+                  }
+                  return msg;
+                }));
+
+                // 添加延迟让用户看到状态变化
+                await new Promise(resolve => setTimeout(resolve, 200));
+              }
+            }
+          }
+        }
+      }
+
     } catch (error) {
       console.error('RAG API Error:', error);
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: '抱歉，RAG接口调用失败，请稍后再试。错误信息：' + error.message
-      }]);
+      setMessages(prev => prev.map(msg => {
+        if (msg.id === tempMessageId) {
+          return {
+            ...msg,
+            content: '抱歉，RAG接口调用失败，请稍后再试。错误信息：' + error.message,
+            isStreaming: false
+          };
+        }
+        return msg;
+      }));
     } finally {
       setIsRagLoading(false);
     }
@@ -281,12 +409,20 @@ function App() {
                           <span className="rag-icon">🔍</span>
                           <span className="rag-label">RAG查询结果</span>
                         </div>
-                        <div className="rag-content">
+                        <div className="rag-content" data-streaming={message.isStreaming}>
                           <ReactMarkdown>{message.content}</ReactMarkdown>
                         </div>
 
-                        {/* 请求时间显示 */}
-                        {message.requestTime && (
+                        {/* TTFT 时间显示 */}
+                        {message.ttft && (
+                          <div className="rag-timing">
+                            <span className="timing-label">⚡ TTFT (首个响应):</span>
+                            <span className="timing-value">{message.ttft}ms</span>
+                          </div>
+                        )}
+
+                        {/* 兼容旧的 requestTime 显示 */}
+                        {!message.ttft && message.requestTime && (
                           <div className="rag-timing">
                             <span className="timing-label">⏱️ 查询耗时:</span>
                             <span className="timing-value">{message.requestTime}ms</span>

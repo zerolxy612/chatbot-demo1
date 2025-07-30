@@ -63,10 +63,39 @@ export default async function handler(req, res) {
       throw new Error(`External API error! status: ${response.status}, message: ${errorText}`);
     }
 
-    const data = await response.json();
-    console.log('Vercel API - Successfully received data from external API');
+    // 如果是流式响应，直接转发流
+    if (streaming && response.headers.get('content-type')?.includes('text/event-stream')) {
+      console.log('Vercel API - Forwarding streaming response');
 
-    res.status(200).json(data);
+      // 设置流式响应头
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+
+      // 转发流式数据
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value, { stream: true });
+          res.write(chunk);
+        }
+      } catch (error) {
+        console.error('Streaming error:', error);
+        res.write(`data: {"error": "Streaming error: ${error.message}"}\n\n`);
+      } finally {
+        res.end();
+      }
+    } else {
+      // 非流式响应，按原来的方式处理
+      const data = await response.json();
+      console.log('Vercel API - Successfully received data from external API');
+      res.status(200).json(data);
+    }
 
   } catch (error) {
     console.error('Vercel API - Error occurred:', error.message);
