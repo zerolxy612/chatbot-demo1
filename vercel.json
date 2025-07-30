@@ -1,7 +1,1 @@
-{
-  "functions": {
-    "api/rag.js": {
-      "runtime": "nodejs18.x"
-    }
-  }
-}
+{"version": 2}
