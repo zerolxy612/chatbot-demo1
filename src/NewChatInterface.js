@@ -4,30 +4,37 @@ import { callGemini } from './api';
 import ChartComponent from './ChartComponent';
 
 // Gemini数据提取提示词模板
-const GEMINI_EXTRACT_PROMPT = `你是一个专业的数据分析师。请从以下搜索结果和回复内容中提取数据，并生成适合的图表JSON格式。
+const GEMINI_EXTRACT_PROMPT = `你是一个专业的数据分析师。请从以下内容中提取尽可能多的真实数据点，并生成对应的图表JSON格式。
 
-要求：
-1. 仔细分析内容中的数值数据、时间序列、分类信息
-2. 根据数据特点选择最合适的图表类型
-3. 严格按照JSON格式返回，不要添加任何其他文字
-4. 如果数据不足，请基于内容合理推断和补充
+关键要求：
+1. 提取所有包含时间和数值的数据点（如：2019年1月6,784,406人次、2025年4月3,847,934人次）
+2. 包含历史最高、最低等关键数据点
+3. 保持原始的时间格式（如：2019年1月、2025年4月）
+4. 数值保持原始精度，去除千位分隔符
+5. 如果有多个时间点数据，优先生成折线图显示趋势
+6. 严格按照JSON格式返回，不要添加解释文字
+
+数据提取示例：
+- "2019年1月，达到了6,784,406人次" → xAxis: "2019年1月", yAxis: 6784406
+- "2025年4月，访港旅客人次反弹至3,847,934" → xAxis: "2025年4月", yAxis: 3847934
+- "历史最低点，只有1,800人次" → 也要包含在数据中
 
 JSON格式要求：
 {
   "isChart": true,
-  "type": "图表类型(line/bar/pie)",
-  "title": "图表标题",
-  "xAxis": ["X轴标签1", "X轴标签2", "X轴标签3"],
-  "yAxis": [数值1, 数值2, 数值3],
-  "description": "图表描述"
+  "type": "line",
+  "title": "基于实际数据的完整标题",
+  "xAxis": ["2019年1月", "2022年3月", "2025年4月", "2025年5月"],
+  "yAxis": [6784406, 1800, 3847934, 4078938],
+  "description": "包含X个关键时间点的趋势分析"
 }
 
-图表类型选择指南：
-- "line": 时间序列、趋势变化数据
-- "bar": 分类对比、排名数据
-- "pie": 占比、构成比例数据
+图表类型选择：
+- "line": 优先选择，适合时间序列数据
+- "bar": 当有分类对比数据时
+- "pie": 当有百分比或占比数据时
 
-请分析以下内容并生成图表JSON：
+请仔细分析以下内容，提取其中所有的时间+数值数据点：
 
 `;
 
@@ -53,6 +60,28 @@ function NewChatInterface({ onToggleInterface }) {
     return GEMINI_EXTRACT_PROMPT + hkgaiResponse;
   };
 
+  // 验证图表数据是否与overview内容匹配
+  const validateChartData = (chartData, overview) => {
+    if (!chartData || !overview) return false;
+
+    // 检查图表数据中的数值是否在overview中存在
+    const overviewNumbers = overview.match(/\d+\.?\d*/g) || [];
+    const chartNumbers = chartData.yAxis || [];
+
+    // 至少有一半的图表数据能在overview中找到对应
+    let matchCount = 0;
+    chartNumbers.forEach(num => {
+      if (overviewNumbers.some(overviewNum => Math.abs(parseFloat(overviewNum) - num) < 0.1)) {
+        matchCount++;
+      }
+    });
+
+    const matchRatio = matchCount / chartNumbers.length;
+    console.log('数据匹配验证:', { matchCount, total: chartNumbers.length, matchRatio });
+
+    return matchRatio >= 0.3; // 至少30%的数据匹配
+  };
+
   // 使用Gemini提取图表数据
   const extractChartDataWithGemini = async (hkgaiResponse) => {
     try {
@@ -69,8 +98,14 @@ function NewChatInterface({ onToggleInterface }) {
         try {
           const chartData = JSON.parse(jsonMatch[0]);
           if (chartData.isChart && chartData.type && chartData.title) {
-            console.log('Gemini成功提取图表数据:', chartData);
-            return chartData;
+            // 验证数据匹配度
+            if (validateChartData(chartData, hkgaiResponse)) {
+              console.log('✅ Gemini成功提取图表数据，数据匹配:', chartData);
+              return chartData;
+            } else {
+              console.log('❌ Gemini提取的数据与overview不匹配');
+              return null;
+            }
           }
         } catch (parseError) {
           console.log('Gemini JSON解析失败:', parseError);
@@ -182,7 +217,162 @@ function NewChatInterface({ onToggleInterface }) {
     }
   };
 
-  // 生成默认图表数据
+  // 从overview内容中智能提取数据生成图表
+  const generateChartFromOverview = (overview, userInput) => {
+    console.log('从overview内容生成图表数据:', { overview, userInput });
+
+    if (!overview) {
+      return generateDefaultChartData(userInput);
+    }
+
+    // 更精确的数据提取策略
+
+    // 1. 提取年份+数值的组合（如：2019年1月，达到了6,784,406人次）
+    const yearDataMatches = overview.match(/(\d{4})年[^，。]*?(\d{1,3}(?:,\d{3})*(?:\.\d+)?)[^，。]*?人次/g) || [];
+    const monthDataMatches = overview.match(/(\d{4})年(\d{1,2})月[^，。]*?(\d{1,3}(?:,\d{3})*(?:\.\d+)?)[^，。]*?人次/g) || [];
+
+    console.log('年份数据匹配:', yearDataMatches);
+    console.log('月份数据匹配:', monthDataMatches);
+
+    // 2. 提取具体的时间点数据
+    const timeSeriesData = [];
+
+    // 处理月份数据（优先级更高）
+    monthDataMatches.forEach(match => {
+      const monthMatch = match.match(/(\d{4})年(\d{1,2})月[^，。]*?(\d{1,3}(?:,\d{3})*(?:\.\d+)?)/);
+      if (monthMatch) {
+        const year = monthMatch[1];
+        const month = monthMatch[2];
+        const value = parseFloat(monthMatch[3].replace(/,/g, ''));
+        timeSeriesData.push({
+          label: `${year}年${month}月`,
+          value: value,
+          sortKey: parseInt(year) * 100 + parseInt(month)
+        });
+      }
+    });
+
+    // 如果没有月份数据，处理年份数据
+    if (timeSeriesData.length === 0) {
+      yearDataMatches.forEach(match => {
+        const yearMatch = match.match(/(\d{4})年[^，。]*?(\d{1,3}(?:,\d{3})*(?:\.\d+)?)/);
+        if (yearMatch) {
+          const year = yearMatch[1];
+          const value = parseFloat(yearMatch[2].replace(/,/g, ''));
+          timeSeriesData.push({
+            label: `${year}年`,
+            value: value,
+            sortKey: parseInt(year)
+          });
+        }
+      });
+    }
+
+    // 3. 提取关键数据点（历史最高、最低、当前等）
+    const keyDataPoints = [];
+
+    // 历史最高
+    const highestMatch = overview.match(/历史最高[^，。]*?(\d{4})年(\d{1,2})?月?[^，。]*?(\d{1,3}(?:,\d{3})*(?:\.\d+)?)[^，。]*?人次/);
+    if (highestMatch) {
+      const year = highestMatch[1];
+      const month = highestMatch[2] || '1';
+      const value = parseFloat(highestMatch[3].replace(/,/g, ''));
+      keyDataPoints.push({
+        label: `${year}年${month}月(最高)`,
+        value: value,
+        sortKey: parseInt(year) * 100 + parseInt(month)
+      });
+    }
+
+    // 历史最低
+    const lowestMatch = overview.match(/历史最低[^，。]*?(\d{4})年(\d{1,2})月[^，。]*?(\d{1,3}(?:,\d{3})*(?:\.\d+)?)[^，。]*?人次/);
+    if (lowestMatch) {
+      const year = lowestMatch[1];
+      const month = lowestMatch[2];
+      const value = parseFloat(lowestMatch[3].replace(/,/g, ''));
+      keyDataPoints.push({
+        label: `${year}年${month}月(最低)`,
+        value: value,
+        sortKey: parseInt(year) * 100 + parseInt(month)
+      });
+    }
+
+    // 最近数据点
+    const recentMatches = overview.match(/(\d{4})年(\d{1,2})月[^，。]*?(\d{1,3}(?:,\d{3})*(?:\.\d+)?)[^，。]*?人次/g) || [];
+    recentMatches.slice(-3).forEach(match => { // 取最后3个数据点
+      const recentMatch = match.match(/(\d{4})年(\d{1,2})月[^，。]*?(\d{1,3}(?:,\d{3})*(?:\.\d+)?)/);
+      if (recentMatch) {
+        const year = recentMatch[1];
+        const month = recentMatch[2];
+        const value = parseFloat(recentMatch[3].replace(/,/g, ''));
+        keyDataPoints.push({
+          label: `${year}年${month}月`,
+          value: value,
+          sortKey: parseInt(year) * 100 + parseInt(month)
+        });
+      }
+    });
+
+    // 合并并去重数据
+    const allDataPoints = [...timeSeriesData, ...keyDataPoints];
+    const uniqueDataPoints = allDataPoints.filter((item, index, self) =>
+      index === self.findIndex(t => t.sortKey === item.sortKey)
+    );
+
+    // 按时间排序
+    uniqueDataPoints.sort((a, b) => a.sortKey - b.sortKey);
+
+    console.log('提取的时间序列数据:', uniqueDataPoints);
+
+    if (uniqueDataPoints.length >= 3) {
+      return {
+        isChart: true,
+        type: 'line',
+        title: userInput.includes('旅游') || userInput.includes('游客') ? '香港旅游人数变化趋势' :
+               userInput.includes('人口') ? '人口变化趋势' : '数据变化趋势',
+        xAxis: uniqueDataPoints.map(d => d.label),
+        yAxis: uniqueDataPoints.map(d => d.value),
+        description: `基于overview中提取的${uniqueDataPoints.length}个关键时间点数据`
+      };
+    }
+
+    // 如果时间序列数据不足，尝试其他类型的数据
+    const percentages = overview.match(/\d+\.?\d*%/g) || [];
+    if (percentages.length >= 3) {
+      const validPercentages = percentages.slice(0, 5).map(p => parseFloat(p.replace('%', '')));
+      const categories = ['类别1', '类别2', '类别3', '类别4', '类别5'].slice(0, validPercentages.length);
+
+      return {
+        isChart: true,
+        type: 'pie',
+        title: '数据占比分析',
+        xAxis: categories,
+        yAxis: validPercentages,
+        description: `基于overview百分比数据生成的饼图`
+      };
+    }
+
+    // 最后备用：提取所有数值
+    const allNumbers = overview.match(/\d{1,3}(?:,\d{3})*(?:\.\d+)?/g) || [];
+    if (allNumbers.length >= 3) {
+      const validNumbers = allNumbers.slice(0, 6).map(n => parseFloat(n.replace(/,/g, '')));
+      const categories = validNumbers.map((_, index) => `数据点${index + 1}`);
+
+      return {
+        isChart: true,
+        type: 'bar',
+        title: '关键数据对比',
+        xAxis: categories,
+        yAxis: validNumbers,
+        description: `基于overview中提取的关键数值数据`
+      };
+    }
+
+    // 如果无法提取有效数据，使用默认数据
+    return generateDefaultChartData(userInput);
+  };
+
+  // 生成默认图表数据（作为最后备用）
   const generateDefaultChartData = (userInput) => {
     console.log('生成默认图表数据，用户输入:', userInput);
 
@@ -261,9 +451,16 @@ function NewChatInterface({ onToggleInterface }) {
         }
       }
 
-      // 备用方案2：生成默认图表数据
+      // 备用方案2：从overview内容智能提取数据
+      if (!chartData && assistantMessage.ragData && assistantMessage.ragData.overview) {
+        console.log('步骤3: 从overview内容智能提取数据');
+        chartData = generateChartFromOverview(assistantMessage.ragData.overview, currentInput);
+        console.log('✅ 从overview提取数据完成:', chartData);
+      }
+
+      // 备用方案3：生成默认图表数据
       if (!chartData) {
-        console.log('步骤3: 使用默认图表数据生成');
+        console.log('步骤4: 使用默认图表数据生成');
         chartData = generateDefaultChartData(currentInput);
         console.log('✅ 默认数据生成完成:', chartData);
       }
