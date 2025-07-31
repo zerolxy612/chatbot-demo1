@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import './App.css';
 import { callOpenAI } from './api';
+import NewChatInterface from './NewChatInterface';
 
 function App() {
   const [messages, setMessages] = useState([]);
@@ -10,7 +11,13 @@ function App() {
   const [isThinkingEnabled, setIsThinkingEnabled] = useState(true); // 思考模式
   const [isLoading, setIsLoading] = useState(false);
   const [isRagLoading, setIsRagLoading] = useState(false); // RAG接口加载状态
+  const [isNewInterface, setIsNewInterface] = useState(false); // 界面切换状态
   const messagesEndRef = useRef(null);
+
+  // 界面切换函数
+  const toggleInterface = () => {
+    setIsNewInterface(!isNewInterface);
+  };
 
   // 根据开关状态生成模型名称
   const getModelName = () => {
@@ -367,34 +374,44 @@ function App() {
 
   return (
     <div className="App">
-      <div className="chat-container">
-        <div className="chat-header">
-          <h1>AI 聊天机器人</h1>
-          <div className="model-controls">
-            <div className="model-name">
-              <span className="model-label">HKGAI-V1</span>
-              <span className="model-status">
-                {isThinkingEnabled && "🧠"} {isNetworkEnabled && "🌐"}
-              </span>
+      <div className="interface-container">
+        <div className={`interface-slide ${!isNewInterface ? 'active' : 'slide-left'}`}>
+          <div className="chat-container">
+            <div className="chat-header">
+              <h1>AI 聊天机器人</h1>
+              <div className="model-controls">
+                <div className="model-name">
+                  <span className="model-label">HKGAI-V1</span>
+                  <span className="model-status">
+                    {isThinkingEnabled && "🧠"} {isNetworkEnabled && "🌐"}
+                  </span>
+                </div>
+                <div className="control-buttons">
+                  <button
+                    className="interface-toggle"
+                    onClick={toggleInterface}
+                    title="切换到新界面"
+                  >
+                    <span className="toggle-icon">🔄</span>
+                    切换界面
+                  </button>
+                  <button
+                    className={`control-btn ${isThinkingEnabled ? 'active' : ''}`}
+                    onClick={() => setIsThinkingEnabled(!isThinkingEnabled)}
+                    title="思考模式"
+                  >
+                    🧠 思考
+                  </button>
+                  <button
+                    className={`control-btn ${isNetworkEnabled ? 'active' : ''}`}
+                    onClick={() => setIsNetworkEnabled(!isNetworkEnabled)}
+                    title="联网模式"
+                  >
+                    🌐 联网
+                  </button>
+                </div>
+              </div>
             </div>
-            <div className="control-buttons">
-              <button
-                className={`control-btn ${isThinkingEnabled ? 'active' : ''}`}
-                onClick={() => setIsThinkingEnabled(!isThinkingEnabled)}
-                title="思考模式"
-              >
-                🧠 思考
-              </button>
-              <button
-                className={`control-btn ${isNetworkEnabled ? 'active' : ''}`}
-                onClick={() => setIsNetworkEnabled(!isNetworkEnabled)}
-                title="联网模式"
-              >
-                🌐 联网
-              </button>
-            </div>
-          </div>
-        </div>
 
         <div className="messages-container">
           {messages.map((message, index) => (
@@ -556,6 +573,12 @@ function App() {
               {isRagLoading ? 'RAG查询中...' : 'RAG查询'}
             </button>
           </div>
+            </div>
+          </div>
+        </div>
+
+        <div className={`interface-slide ${isNewInterface ? 'active' : 'slide-right'}`}>
+          <NewChatInterface onToggleInterface={toggleInterface} />
         </div>
       </div>
     </div>
