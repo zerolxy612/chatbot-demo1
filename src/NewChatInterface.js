@@ -4,37 +4,48 @@ import { callGemini } from './api';
 import ChartComponent from './ChartComponent';
 
 // Gemini数据提取提示词模板
-const GEMINI_EXTRACT_PROMPT = `你是一个专业的数据分析师。请从以下内容中提取尽可能多的真实数据点，并生成折线图JSON格式。
+const GEMINI_EXTRACT_PROMPT = `你是一个专业的数据分析师。请从以下内容中提取真实的数据点，并生成折线图JSON格式。
 
-关键要求：
-1. 提取所有包含时间和数值的数据点（如：2019年1月6,784,406人次、2025年4月3,847,934人次）
-2. 包含历史最高、最低等关键数据点
-3. 保持原始的时间格式（如：2019年1月、2025年4月）
-4. 数值保持原始精度，去除千位分隔符
-5. 固定生成折线图类型，显示数据变化趋势
-6. 严格按照JSON格式返回，不要添加解释文字
+核心原则：
+1. 提取有业务意义的数值数据（人次、金额、数量、汇率、温度、百分比等）
+2. 优先提取带有明确单位或上下文的数字
+3. 保持数据的完整性和准确性
+4. 确保X轴标签与Y轴数值有明确的对应关系
+
+数据提取指南：
+✅ 优先提取：
+- 带单位的数值：6,784,406人次、105.2美元、25.3℃、83%
+- 有明确上下文的数字：达到了XXX、反弹至XXX、平均XXX
+- 时间序列数据：2019年1月的XXX、2025年4月的XXX
+
+⚠️ 谨慎处理：
+- 年份数字：如果是数据标签的一部分可以使用，但不作为Y轴数值
+- 小数字：根据上下文判断是否有意义
+- 百分比：如果是实际数据可以提取
 
 数据提取示例：
 - "2019年1月，达到了6,784,406人次" → xAxis: "2019年1月", yAxis: 6784406
-- "2025年4月，访港旅客人次反弹至3,847,934" → xAxis: "2025年4月", yAxis: 3847934
-- "历史最低点，只有1,800人次" → 也要包含在数据中
+- "汇率为105.2美元" → xAxis: "当前汇率", yAxis: 105.2
+- "温度25.3℃" → xAxis: "当前温度", yAxis: 25.3
+- "增长了83%" → xAxis: "增长率", yAxis: 83
 
 JSON格式要求（固定为折线图）：
 {
   "isChart": true,
   "type": "line",
-  "title": "基于实际数据的完整标题",
-  "xAxis": ["2019年1月", "2022年3月", "2025年4月", "2025年5月"],
-  "yAxis": [6784406, 1800, 3847934, 4078938],
-  "description": "包含X个关键时间点的折线图趋势分析"
+  "title": "基于实际数据的标题",
+  "xAxis": ["时间点1", "时间点2", "时间点3"],
+  "yAxis": [数值1, 数值2, 数值3],
+  "description": "基于真实数据的折线图分析"
 }
 
-注意：
-- 图表类型固定为 "line"（折线图）
-- 重点关注时间序列数据的提取
-- 确保数据点按时间顺序排列
+重要提醒：
+- 确保每个Y轴数值都有对应的X轴标签
+- 数值应该是同一类型的数据（都是人次、都是金额等）
+- 如果数据类型混杂，选择最重要的一类
+- 至少提取2个数据点
 
-请仔细分析以下内容，提取其中所有的时间+数值数据点，生成折线图：
+请仔细分析以下内容，提取其中的有意义数据：
 
 `;
 
@@ -60,26 +71,139 @@ function NewChatInterface({ onToggleInterface }) {
     return GEMINI_EXTRACT_PROMPT + hkgaiResponse;
   };
 
-  // 验证图表数据是否与overview内容匹配
+  // 验证图表数据是否与overview内容匹配 - 灵活智能的验证逻辑
   const validateChartData = (chartData, overview) => {
     if (!chartData || !overview) return false;
 
-    // 检查图表数据中的数值是否在overview中存在
-    const overviewNumbers = overview.match(/\d+\.?\d*/g) || [];
     const chartNumbers = chartData.yAxis || [];
+    if (chartNumbers.length === 0) return false;
 
-    // 至少有一半的图表数据能在overview中找到对应
-    let matchCount = 0;
-    chartNumbers.forEach(num => {
-      if (overviewNumbers.some(overviewNum => Math.abs(parseFloat(overviewNum) - num) < 0.1)) {
-        matchCount++;
+    // 从overview中提取所有可能的数值
+    const allNumbers = [];
+
+    // 1. 提取带千位分隔符的数字（通常是重要数据）
+    const formattedNumbers = overview.match(/\d{1,3}(?:,\d{3})+(?:\.\d+)?/g) || [];
+    formattedNumbers.forEach(num => {
+      allNumbers.push({
+        value: parseFloat(num.replace(/,/g, '')),
+        confidence: 0.9, // 高置信度
+        source: 'formatted'
+      });
+    });
+
+    // 2. 提取小数（汇率、比率、温度等）
+    const decimals = overview.match(/\d+\.\d+/g) || [];
+    decimals.forEach(num => {
+      const value = parseFloat(num);
+      allNumbers.push({
+        value: value,
+        confidence: 0.7, // 中等置信度
+        source: 'decimal'
+      });
+    });
+
+    // 3. 提取上下文中的数字（通过关键词判断重要性）
+    const contextPatterns = [
+      /(?:达到|反弹至|增加至|减少至|为|是|有|共|总计|平均)\s*(\d+(?:,\d{3})*(?:\.\d+)?)/g,
+      /(\d+(?:,\d{3})*(?:\.\d+)?)\s*(?:人次|万人|亿|万|千|个|件|次|元|美元|港币|度|℃|%)/g
+    ];
+
+    contextPatterns.forEach(pattern => {
+      let match;
+      while ((match = pattern.exec(overview)) !== null) {
+        const value = parseFloat(match[1].replace(/,/g, ''));
+        allNumbers.push({
+          value: value,
+          confidence: 0.8, // 较高置信度
+          source: 'context'
+        });
       }
     });
 
-    const matchRatio = matchCount / chartNumbers.length;
-    console.log('数据匹配验证:', { matchCount, total: chartNumbers.length, matchRatio });
+    // 4. 提取纯数字（较低置信度）
+    const pureNumbers = overview.match(/\b\d{3,}\b/g) || [];
+    pureNumbers.forEach(num => {
+      const value = parseInt(num);
+      allNumbers.push({
+        value: value,
+        confidence: 0.3, // 低置信度
+        source: 'pure'
+      });
+    });
 
-    return matchRatio >= 0.3; // 至少30%的数据匹配
+    // 去重并按置信度排序
+    const uniqueNumbers = [];
+    allNumbers.forEach(item => {
+      const existing = uniqueNumbers.find(n => Math.abs(n.value - item.value) < 0.01);
+      if (!existing) {
+        uniqueNumbers.push(item);
+      } else if (item.confidence > existing.confidence) {
+        existing.confidence = item.confidence;
+        existing.source = item.source;
+      }
+    });
+
+    uniqueNumbers.sort((a, b) => b.confidence - a.confidence);
+
+    console.log('提取的数值（按置信度排序）:', uniqueNumbers.slice(0, 10));
+    console.log('图表数值:', chartNumbers);
+
+    // 智能匹配：考虑置信度和数值相似性
+    let totalScore = 0;
+    let maxScore = 0;
+
+    chartNumbers.forEach(chartNum => {
+      let bestMatch = null;
+      let bestScore = 0;
+
+      uniqueNumbers.forEach(overviewNum => {
+        // 计算相似度分数
+        const diff = Math.abs(overviewNum.value - chartNum);
+        const relativeDiff = diff / Math.max(overviewNum.value, chartNum);
+
+        let similarityScore = 0;
+        if (relativeDiff < 0.01) similarityScore = 1.0;      // 几乎完全匹配
+        else if (relativeDiff < 0.05) similarityScore = 0.9; // 非常接近
+        else if (relativeDiff < 0.1) similarityScore = 0.7;  // 比较接近
+        else if (relativeDiff < 0.2) similarityScore = 0.5;  // 有些接近
+        else if (relativeDiff < 0.5) similarityScore = 0.3;  // 勉强接近
+        else similarityScore = 0;
+
+        // 综合分数 = 相似度 × 置信度
+        const score = similarityScore * overviewNum.confidence;
+
+        if (score > bestScore) {
+          bestScore = score;
+          bestMatch = overviewNum;
+        }
+      });
+
+      totalScore += bestScore;
+      maxScore += 1.0;
+
+      if (bestMatch && bestScore > 0.3) {
+        console.log(`图表数值 ${chartNum} 匹配到 ${bestMatch.value} (${bestMatch.source}), 分数: ${bestScore.toFixed(2)}`);
+      }
+    });
+
+    const overallScore = maxScore > 0 ? totalScore / maxScore : 0;
+    console.log('数据匹配验证:', {
+      totalScore: totalScore.toFixed(2),
+      maxScore: maxScore.toFixed(2),
+      overallScore: overallScore.toFixed(2),
+      threshold: 0.4
+    });
+
+    // 灵活的阈值：如果有高质量匹配，降低要求
+    const hasHighQualityMatch = chartNumbers.some(chartNum => {
+      return uniqueNumbers.some(overviewNum => {
+        const relativeDiff = Math.abs(overviewNum.value - chartNum) / Math.max(overviewNum.value, chartNum);
+        return relativeDiff < 0.05 && overviewNum.confidence > 0.7;
+      });
+    });
+
+    const threshold = hasHighQualityMatch ? 0.3 : 0.4;
+    return overallScore >= threshold;
   };
 
   // 使用Gemini提取图表数据
@@ -97,11 +221,66 @@ function NewChatInterface({ onToggleInterface }) {
       if (jsonMatch) {
         try {
           const chartData = JSON.parse(jsonMatch[0]);
-          if (chartData.isChart && chartData.type && chartData.title) {
+          if (chartData.isChart && chartData.type && chartData.title && chartData.yAxis) {
+
+            // 智能数据清理：基于上下文和合理性判断
+            const cleanedYAxis = chartData.yAxis.filter((value, index) => {
+              const num = parseFloat(value);
+
+              // 基本合理性检查
+              if (isNaN(num) || !isFinite(num)) return false;
+
+              // 检查是否有对应的X轴标签
+              const xLabel = chartData.xAxis[index];
+              if (!xLabel) return false;
+
+              // 如果数值在overview中有明确的上下文支持，保留
+              const hasContext = hkgaiResponse.match(new RegExp(`${num.toString().replace(/,/g, '')}[^\\d]`));
+              if (hasContext) return true;
+
+              // 如果是带单位的数值，更可能是有意义的数据
+              const hasUnit = hkgaiResponse.match(new RegExp(`${num.toString().replace(/,/g, '')}\\s*(?:人次|万人|亿|万|千|个|件|次|元|美元|港币|度|℃|%)`));
+              if (hasUnit) return true;
+
+              // 如果数值范围合理（不是明显的年份、月份等），保留
+              // 但不设置硬性限制，而是基于数据分布判断
+              const allValues = chartData.yAxis.map(v => parseFloat(v)).filter(v => !isNaN(v));
+              const avgValue = allValues.reduce((sum, v) => sum + v, 0) / allValues.length;
+              const maxValue = Math.max(...allValues);
+              const minValue = Math.min(...allValues);
+
+              // 如果数值与其他数值在同一个数量级，更可能是有效数据
+              const orderOfMagnitude = Math.floor(Math.log10(Math.abs(num)));
+              const avgOrderOfMagnitude = Math.floor(Math.log10(Math.abs(avgValue)));
+
+              if (Math.abs(orderOfMagnitude - avgOrderOfMagnitude) <= 2) return true;
+
+              // 如果是异常值但在合理范围内，也保留
+              if (num >= minValue * 0.1 && num <= maxValue * 10) return true;
+
+              return false;
+            });
+
+            console.log('原始yAxis:', chartData.yAxis);
+            console.log('清理后yAxis:', cleanedYAxis);
+
+            // 如果清理后数据点太少，使用原始数据但记录警告
+            const finalYAxis = cleanedYAxis.length >= 2 ? cleanedYAxis : chartData.yAxis;
+            if (cleanedYAxis.length < 2) {
+              console.log('⚠️ 清理后数据点不足，使用原始数据');
+            }
+
+            // 更新图表数据
+            const cleanedChartData = {
+              ...chartData,
+              yAxis: finalYAxis,
+              xAxis: chartData.xAxis.slice(0, finalYAxis.length) // 确保X轴和Y轴长度一致
+            };
+
             // 验证数据匹配度
-            if (validateChartData(chartData, hkgaiResponse)) {
-              console.log('✅ Gemini成功提取图表数据，数据匹配:', chartData);
-              return chartData;
+            if (validateChartData(cleanedChartData, hkgaiResponse)) {
+              console.log('✅ Gemini成功提取图表数据，数据匹配:', cleanedChartData);
+              return cleanedChartData;
             } else {
               console.log('❌ Gemini提取的数据与overview不匹配');
               return null;
