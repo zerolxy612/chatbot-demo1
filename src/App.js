@@ -563,14 +563,14 @@ function App() {
           />
           <div className="button-group">
             <button onClick={sendMessage} disabled={isLoading || isRagLoading || !inputValue.trim()}>
-              {isLoading ? '发送中...' : '发送'}
+              {isLoading ? '发送中...' : 'rag'}
             </button>
             <button
               onClick={callRagApi}
               disabled={isLoading || isRagLoading || !inputValue.trim()}
               className="rag-button"
             >
-              {isRagLoading ? 'RAG查询中...' : 'RAG查询'}
+              {isRagLoading ? '查询中...' : 'multisearch'}
             </button>
           </div>
             </div>
