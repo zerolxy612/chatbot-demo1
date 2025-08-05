@@ -77,9 +77,20 @@ function App() {
       // 解码Unicode字符的函数
       const decodeText = (text) => {
         if (!text) return text;
-        return text.replace(/\\u([0-9a-fA-F]{4})/g, (_, code) => {
+        const originalText = text;
+        const decodedText = text.replace(/\\u([0-9a-fA-F]{4})/g, (_, code) => {
           return String.fromCharCode(parseInt(code, 16));
         });
+
+        // 如果有Unicode解码，打印调试信息
+        if (originalText !== decodedText) {
+          console.log('Unicode解码:', {
+            原始: originalText.substring(0, 100) + '...',
+            解码后: decodedText.substring(0, 100) + '...'
+          });
+        }
+
+        return decodedText;
       };
 
       try {
@@ -88,6 +99,15 @@ function App() {
         if (Array.isArray(results)) {
           results.forEach(result => {
             if (result && result.doc_index) {
+              console.log('=== 原始搜索结果数据 ===', {
+                doc_index: result.doc_index,
+                title_原始: result.title,
+                snippet_原始: result.snippet || result.result,
+                source_原始: result.source,
+                url_原始: result.url,
+                score: result.score
+              });
+
               searchResults.push({
                 id: result.doc_index,
                 title: decodeText(result.title) || '搜索结果',
