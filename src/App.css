@@ -1111,14 +1111,22 @@
   margin-right: 8px;
 }
 
-/* 紧凑的主要内容样式 */
+/* 紧凑的主要内容样式 - 极致压缩版本 */
 .main-content.compact {
-  line-height: 1.3;
+  line-height: 1.2 !important;
+  font-size: 14px;
+}
+
+.main-content.compact * {
+  line-height: 1.2 !important;
+  margin-top: 2px !important;
+  margin-bottom: 2px !important;
 }
 
 .main-content.compact p {
-  margin: 4px 0 !important;
-  line-height: 1.4;
+  margin: 2px 0 !important;
+  line-height: 1.2 !important;
+  padding: 0 !important;
 }
 
 .main-content.compact h1,
@@ -1127,43 +1135,48 @@
 .main-content.compact h4,
 .main-content.compact h5,
 .main-content.compact h6 {
-  margin: 8px 0 4px 0 !important;
-  line-height: 1.2;
+  margin: 6px 0 2px 0 !important;
+  line-height: 1.1 !important;
   font-weight: 600;
+  padding: 0 !important;
 }
 
 .main-content.compact ul,
 .main-content.compact ol {
-  margin: 4px 0 !important;
-  padding-left: 18px;
+  margin: 2px 0 !important;
+  padding-left: 16px !important;
+  line-height: 1.2 !important;
 }
 
 .main-content.compact li {
-  margin: 2px 0 !important;
-  line-height: 1.3;
-  padding: 1px 0;
+  margin: 1px 0 !important;
+  line-height: 1.2 !important;
+  padding: 0 !important;
 }
 
 .main-content.compact li p {
-  margin: 2px 0 !important;
-  display: inline;
+  margin: 0 !important;
+  display: inline !important;
+  line-height: 1.2 !important;
+  padding: 0 !important;
 }
 
 .main-content.compact blockquote {
-  margin: 4px 0 !important;
-  padding: 6px 10px;
-  line-height: 1.3;
+  margin: 2px 0 !important;
+  padding: 4px 8px !important;
+  line-height: 1.2 !important;
 }
 
 .main-content.compact pre {
-  margin: 4px 0 !important;
-  padding: 8px;
-  line-height: 1.2;
+  margin: 2px 0 !important;
+  padding: 6px !important;
+  line-height: 1.1 !important;
 }
 
 .main-content.compact code {
-  padding: 1px 3px;
-  line-height: 1.2;
+  padding: 1px 2px !important;
+  line-height: 1.1 !important;
+  margin: 0 !important;
 }
 
 /* 进一步减少嵌套列表的间距 */
@@ -1189,7 +1202,59 @@
 
 /* 减少分割线间距 */
 .main-content.compact hr {
-  margin: 8px 0 !important;
+  margin: 4px 0 !important;
+}
+
+/* 强制覆盖所有可能的Markdown渲染样式 */
+.main-content.compact .markdown-body,
+.main-content.compact .markdown-content,
+.main-content.compact div,
+.main-content.compact span {
+  line-height: 1.2 !important;
+  margin-top: 2px !important;
+  margin-bottom: 2px !important;
+}
+
+/* 特别针对ReactMarkdown组件的样式覆盖 */
+.main-content.compact .markdown-body p,
+.main-content.compact .markdown-content p {
+  margin: 2px 0 !important;
+  line-height: 1.2 !important;
+}
+
+.main-content.compact .markdown-body ul,
+.main-content.compact .markdown-content ul,
+.main-content.compact .markdown-body ol,
+.main-content.compact .markdown-content ol {
+  margin: 2px 0 !important;
+  padding-left: 16px !important;
+}
+
+.main-content.compact .markdown-body li,
+.main-content.compact .markdown-content li {
+  margin: 1px 0 !important;
+  line-height: 1.2 !important;
+}
+
+/* 强制所有文本元素使用紧凑行高 */
+.main-content.compact * {
+  line-height: 1.2 !important;
+}
+
+/* 移除所有可能的额外间距 */
+.main-content.compact > *:first-child {
+  margin-top: 0 !important;
+}
+
+.main-content.compact > *:last-child {
+  margin-bottom: 0 !important;
+}
+
+/* 针对可能的换行符处理 */
+.main-content.compact br {
+  line-height: 0.5 !important;
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
 /* 减少引用来源的间距 */

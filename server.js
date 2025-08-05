@@ -94,7 +94,24 @@ app.post('/api/rag', async (req, res) => {
     }
 
     const data = await response.json();
-    console.log('RAG API Response:', data);
+    console.log('=== RAG API 完整响应 ===');
+    console.log('RAG API Response:', JSON.stringify(data, null, 2));
+
+    // 特别打印search_results
+    if (data.search_results) {
+      console.log('=== SEARCH_RESULTS 原始数据 ===');
+      console.log('搜索结果数量:', data.search_results.length);
+      data.search_results.forEach((result, index) => {
+        console.log(`结果 ${index + 1}:`, {
+          id: result.id,
+          title: result.title,
+          snippet: result.snippet ? result.snippet.substring(0, 100) + '...' : 'N/A',
+          source: result.source,
+          url: result.url,
+          score: result.score
+        });
+      });
+    }
 
     res.json(data);
 

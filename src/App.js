@@ -50,7 +50,29 @@ function App() {
       const searchData = searchResultsMatch[1].trim();
       console.log('=== SEARCH_RESULTS 前端提取的原始数据 ===');
       console.log('数据来源: https://oneapi.hkgai.net/v1/chat/completions 响应中的 <search_results> 标签');
+      console.log('原始搜索数据长度:', searchData.length);
       console.log('原始搜索数据:', searchData);
+
+      // 尝试解析并显示每个原始JSON对象
+      try {
+        const lines = searchData.split('\n').filter(line => line.trim());
+        console.log('分割后的行数:', lines.length);
+        lines.forEach((line, index) => {
+          console.log(`原始行 ${index + 1}:`, line);
+          try {
+            const parsed = JSON.parse(line);
+            console.log(`解析后的对象 ${index + 1}:`, parsed);
+            console.log(`  - doc_index: ${parsed.doc_index}`);
+            console.log(`  - title: ${parsed.title}`);
+            console.log(`  - source: ${parsed.source}`);
+            console.log(`  - url: ${parsed.url}`);
+          } catch (e) {
+            console.log(`行 ${index + 1} 解析失败:`, e.message);
+          }
+        });
+      } catch (e) {
+        console.log('整体解析失败:', e.message);
+      }
 
       // 解码Unicode字符的函数
       const decodeText = (text) => {
