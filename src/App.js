@@ -40,15 +40,125 @@ function App() {
     scrollToBottom();
   }, [messages]);
 
+  // 从搜索结果中提取引用信息
+  const extractSearchResults = (content) => {
+    const searchResults = [];
+
+    // 提取 <search_results> 标签内的内容
+    const searchResultsMatch = content.match(/<search_results>([\s\S]*?)<\/search_results>/);
+    if (searchResultsMatch) {
+      const searchData = searchResultsMatch[1].trim();
+      console.log('=== SEARCH_RESULTS 前端提取的原始数据 ===');
+      console.log('数据来源: https://oneapi.hkgai.net/v1/chat/completions 响应中的 <search_results> 标签');
+      console.log('原始搜索数据:', searchData);
+
+      // 解码Unicode字符的函数
+      const decodeText = (text) => {
+        if (!text) return text;
+        return text.replace(/\\u([0-9a-fA-F]{4})/g, (_, code) => {
+          return String.fromCharCode(parseInt(code, 16));
+        });
+      };
+
+      try {
+        // 尝试解析为JSON数组
+        const results = JSON.parse(`[${searchData}]`);
+        if (Array.isArray(results)) {
+          results.forEach(result => {
+            if (result && result.doc_index) {
+              searchResults.push({
+                id: result.doc_index,
+                title: decodeText(result.title) || '搜索结果',
+                snippet: decodeText(result.snippet || result.result) || '',
+                url: result.url || '',
+                source: decodeText(result.source) || 'Unknown',
+                score: result.score || 0
+              });
+            }
+          });
+        }
+      } catch (e) {
+        console.log('JSON数组解析失败，尝试逐行解析JSON对象');
+
+        // 按行分割，每行可能是一个JSON对象
+        const lines = searchData.split('\n').filter(line => line.trim());
+
+        lines.forEach(line => {
+          try {
+            const result = JSON.parse(line);
+            if (result && result.doc_index) {
+              searchResults.push({
+                id: result.doc_index,
+                title: decodeText(result.title) || '搜索结果',
+                snippet: decodeText(result.snippet || result.result) || '',
+                url: result.url || '',
+                source: decodeText(result.source) || 'Unknown',
+                score: result.score || 0
+              });
+            }
+          } catch (lineError) {
+            console.warn('解析行失败:', line, lineError);
+          }
+        });
+
+        // 如果还是失败，尝试正则表达式提取
+        if (searchResults.length === 0) {
+          console.log('尝试正则表达式提取');
+
+          // 使用正则表达式匹配JSON对象
+          const jsonMatches = searchData.match(/\{[^}]*"doc_index"[^}]*\}/g);
+          if (jsonMatches) {
+            jsonMatches.forEach(match => {
+              try {
+                const result = JSON.parse(match);
+                if (result && result.doc_index) {
+                  searchResults.push({
+                    id: result.doc_index,
+                    title: decodeText(result.title) || '搜索结果',
+                    snippet: decodeText(result.snippet || result.result) || '',
+                    url: result.url || '',
+                    source: decodeText(result.source) || 'Unknown',
+                    score: result.score || 0
+                  });
+                }
+              } catch (matchError) {
+                console.warn('正则匹配解析失败:', match, matchError);
+              }
+            });
+          }
+        }
+      }
+
+      console.log('=== 最终解析出的搜索结果 ===');
+      console.log('搜索结果数量:', searchResults.length);
+      searchResults.forEach((result, index) => {
+        console.log(`结果 ${index + 1}:`, {
+          id: result.id,
+          title: result.title,
+          snippet: result.snippet ? result.snippet.substring(0, 100) + '...' : 'N/A',
+          source: result.source,
+          url: result.url,
+          score: result.score
+        });
+      });
+    }
+
+    return searchResults;
+  };
+
   // 内容解析函数 - 分离think内容和正文内容
   const parseContent = (content) => {
+    // 提取搜索结果
+    const searchResults = extractSearchResults(content);
+
     // 查找<think>标签的位置
     const thinkIndex = content.indexOf('<think>');
     if (thinkIndex === -1) {
       // 没有think标签，直接过滤其他内容
       return {
         thinkContent: '',
-        mainContent: filterMainContent(content)
+        mainContent: filterMainContent(content),
+        searchResults: searchResults
       };
     }
 
@@ -65,12 +175,29 @@ function App() {
 
     return {
       thinkContent,
-      mainContent
+      mainContent,
+      searchResults: searchResults
     };
+  };
+
+  // 解码Unicode字符
+  const decodeUnicodeContent = (content) => {
+    try {
+      // 解码 \uXXXX 格式的Unicode字符
+      return content.replace(/\\u([0-9a-fA-F]{4})/g, (_, code) => {
+        return String.fromCharCode(parseInt(code, 16));
+      });
+    } catch (error) {
+      console.warn('Unicode解码失败:', error);
+      return content;
+    }
   };
 
   // 过滤主要内容
   const filterMainContent = (content) => {
+    // 先解码Unicode字符
+    content = decodeUnicodeContent(content);
+
     // 过滤掉搜索结果（包括JSON格式的搜索结果）
     content = content.replace(/<search_results>[\s\S]*?<\/search_results>/g, '');
     content = content.replace(/<search_results>\{[\s\S]*?\}<\/search_results>/g, '');
@@ -78,8 +205,8 @@ function App() {
     // 过滤掉单独的JSON搜索结果
     content = content.replace(/\{"query":\s*"[^"]*",[\s\S]*?\}/g, '');
 
-    // 过滤掉引用标记，如[citation:3]
-    content = content.replace(/\[citation:\d+\]/g, '');
+    // 保留引用标记，不再过滤 [citation:3]
+    // content = content.replace(/\[citation:\d+\]/g, '');
 
     // 过滤掉"None"（单独出现的）
     content = content.replace(/^\s*None\s*$/gm, '');
@@ -113,7 +240,8 @@ function App() {
         content: '',
         rawContent: '',
         thinkContent: '',
-        mainContent: ''
+        mainContent: '',
+        searchResults: []
       };
 
       setMessages(prev => [...prev, assistantMessage]);
@@ -141,6 +269,7 @@ function App() {
                 const parsedContent = parseContent(assistantMessage.rawContent);
                 assistantMessage.thinkContent = parsedContent.thinkContent;
                 assistantMessage.mainContent = parsedContent.mainContent;
+                assistantMessage.searchResults = parsedContent.searchResults;
                 assistantMessage.content = assistantMessage.mainContent; // 保持兼容性
 
                 setMessages(prev => {
@@ -157,7 +286,24 @@ function App() {
       }
     } catch (error) {
       console.error('Error:', error);
-      setMessages(prev => [...prev, { role: 'assistant', content: '抱歉，发生了错误，请稍后再试。' }]);
+
+      let errorMessage = '抱歉，发生了错误，请稍后再试。';
+
+      if (error.message.includes('500')) {
+        errorMessage = '🔧 服务器暂时繁忙，请稍后重试。如果问题持续，请尝试使用multisearch按钮。';
+      } else if (error.message.includes('network') || error.name === 'TypeError') {
+        errorMessage = '🌐 网络连接异常，请检查网络后重试。';
+      } else if (error.message.includes('401') || error.message.includes('403')) {
+        errorMessage = '🔑 API认证失败，请联系管理员检查API密钥。';
+      } else if (error.message.includes('429')) {
+        errorMessage = '⏰ API调用频率过高，请稍等片刻后重试。';
+      }
+
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: errorMessage,
+        isError: true
+      }]);
     } finally {
       setIsLoading(false);
     }
@@ -168,6 +314,84 @@ function App() {
       e.preventDefault();
       sendMessage();
     }
+  };
+
+  // 自定义ReactMarkdown组件，处理引用链接
+  const MarkdownWithCitations = ({ children, searchResults = [] }) => {
+    // 处理引用点击
+    const handleCitationClick = (citationId) => {
+      const result = searchResults.find(r => r.id === citationId);
+      if (result && result.url) {
+        window.open(result.url, '_blank');
+      } else {
+        // 如果没有URL，滚动到引用信息
+        const refElement = document.getElementById(`citation-${citationId}`);
+        if (refElement) {
+          refElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          refElement.style.backgroundColor = '#fff3cd';
+          setTimeout(() => {
+            refElement.style.backgroundColor = '';
+          }, 2000);
+        }
+      }
+    };
+
+    // 处理文本中的引用标记
+    const processContent = (text) => {
+      if (typeof text !== 'string') return text;
+
+      // 先解码Unicode字符
+      text = text.replace(/\\u([0-9a-fA-F]{4})/g, (_, code) => {
+        return String.fromCharCode(parseInt(code, 16));
+      });
+
+      // 分割文本，保留引用标记
+      const parts = text.split(/(\[citation:\d+\])/g);
+
+      return parts.map((part, index) => {
+        const citationMatch = part.match(/\[citation:(\d+)\]/);
+        if (citationMatch) {
+          const citationId = parseInt(citationMatch[1]);
+          const result = searchResults.find(r => r.id === citationId);
+
+          return (
+            <sup
+              key={index}
+              className="citation-link"
+              title={result ? `${result.title} - ${result.source}` : '引用来源'}
+              onClick={() => handleCitationClick(citationId)}
+              style={{
+                color: '#1976d2',
+                cursor: 'pointer',
+                textDecoration: 'underline',
+                fontSize: '0.8em',
+                marginLeft: '2px',
+                fontWeight: 'bold'
+              }}
+            >
+              [{citationId}]
+            </sup>
+          );
+        }
+        return part;
+      });
+    };
+
+    return (
+      <div>
+        <ReactMarkdown
+          components={{
+            p: ({ children }) => <p>{processContent(children)}</p>,
+            li: ({ children }) => <li>{processContent(children)}</li>,
+            // 处理其他可能包含文本的元素
+            span: ({ children }) => <span>{processContent(children)}</span>,
+            div: ({ children }) => <div>{processContent(children)}</div>
+          }}
+        >
+          {children}
+        </ReactMarkdown>
+      </div>
+    );
   };
 
   // 调用新的RAG接口（流式输出）
@@ -489,16 +713,71 @@ function App() {
                           </div>
                         )}
 
+                        {/* 显示搜索结果引用信息 - 移到最前面 */}
+                        {message.searchResults && message.searchResults.length > 0 && (
+                          <div className="rag-references" style={{ marginBottom: '20px' }}>
+                            <div className="references-header">📚 引用来源 ({message.searchResults.length})</div>
+                            <div className="references-list">
+                              {message.searchResults.map((result, index) => {
+                                console.log('显示搜索结果:', result); // 调试信息
+                                return (
+                                  <div key={index} id={`citation-${result.id}`} className="reference-item">
+                                    <div className="reference-title">
+                                      <span className="citation-number">[{result.id}]</span>
+                                      {result.title}
+                                    </div>
+                                    <div className="reference-snippet">{result.snippet}</div>
+                                    <div className="reference-meta">
+                                      <span className="reference-source">📄 来源: {result.source}</span>
+                                      {result.score && (
+                                        <span className="reference-score">📊 相关度: {(result.score * 100).toFixed(1)}%</span>
+                                      )}
+                                    </div>
+                                    {result.url && result.url.trim() && (
+                                      <div className="reference-link-container">
+                                        <span className="link-label">🔗 链接：</span>
+                                        <a
+                                          href={result.url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="reference-link"
+                                          style={{
+                                            color: '#1976d2',
+                                            textDecoration: 'underline',
+                                            wordBreak: 'break-all'
+                                          }}
+                                        >
+                                          {result.url}
+                                        </a>
+                                      </div>
+                                    )}
+                                    {/* 调试信息 */}
+                                    <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
+                                      调试: URL = "{result.url}", 长度 = {result.url ? result.url.length : 0}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
                         {/* 主要内容显示 */}
                         {message.mainContent && (
-                          <div className="main-content">
-                            <ReactMarkdown>{message.mainContent}</ReactMarkdown>
+                          <div className="main-content compact">
+                            <MarkdownWithCitations searchResults={message.searchResults || []}>
+                              {message.mainContent}
+                            </MarkdownWithCitations>
                           </div>
                         )}
 
                         {/* 兼容旧格式 */}
                         {!message.thinkContent && !message.mainContent && message.content && (
-                          <ReactMarkdown>{message.content}</ReactMarkdown>
+                          <div className="main-content compact">
+                            <MarkdownWithCitations searchResults={message.searchResults || []}>
+                              {message.content}
+                            </MarkdownWithCitations>
+                          </div>
                         )}
                       </div>
                     )}

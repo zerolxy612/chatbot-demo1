@@ -1,29 +1,76 @@
 // 使用您提供的真实OpenAI API代码
-export const callOpenAI = async (model, message) => {
+export const callOpenAI = async (model, message, retryCount = 0) => {
+  const maxRetries = 2;
+
   try {
-    const response = await fetch('https://oneapi.hkgai.net/v1/chat/completions', {
+    console.log('API调用参数:', {
+      model: model,
+      message: message.substring(0, 100) + '...',
+      messageLength: message.length
+    });
+
+    const requestBody = {
+      model: model,
+      messages: [
+        { role: "user", content: message }
+      ],
+      stream: true,
+      max_tokens: 10240
+    };
+
+    console.log('请求体:', JSON.stringify(requestBody, null, 2));
+
+    // 可以添加备用端点
+    const apiEndpoints = [
+      'https://oneapi.hkgai.net/v1/chat/completions',
+      // 'https://backup-api.hkgai.net/v1/chat/completions' // 备用端点
+    ];
+
+    const currentEndpoint = apiEndpoints[0]; // 目前使用主端点
+    console.log('使用API端点:', currentEndpoint);
+
+    const response = await fetch(currentEndpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer sk-OsexRhsOdqg5yb9i8c637435AeF1445f9c6cD2717a95167a'
       },
-      body: JSON.stringify({
-        model: model,
-        messages: [
-          { role: "user", content: message }
-        ],
-        stream: true,
-        max_tokens: 10240
-      })
+      body: JSON.stringify(requestBody)
     });
 
+    console.log('API响应状态:', response.status, response.statusText);
+
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      // 尝试读取错误响应体
+      let errorBody = '';
+      try {
+        errorBody = await response.text();
+        console.error('API错误响应体:', errorBody);
+      } catch (e) {
+        console.error('无法读取错误响应体:', e);
+      }
+
+      // 如果是500错误且还有重试次数，则重试
+      if (response.status === 500 && retryCount < maxRetries) {
+        console.log(`第${retryCount + 1}次重试...`);
+        await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1))); // 递增延迟
+        return callOpenAI(model, message, retryCount + 1);
+      }
+
+      throw new Error(`HTTP error! status: ${response.status}, body: ${errorBody}`);
     }
 
     return response;
   } catch (error) {
     console.error('API调用失败:', error);
+
+    // 网络错误也可以重试
+    if (error.name === 'TypeError' && retryCount < maxRetries) {
+      console.log(`网络错误，第${retryCount + 1}次重试...`);
+      await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
+      return callOpenAI(model, message, retryCount + 1);
+    }
+
     throw error;
   }
 };
