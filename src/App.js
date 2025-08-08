@@ -644,7 +644,7 @@ function App() {
         <div className={`interface-slide ${!isNewInterface ? 'active' : 'slide-left'}`}>
           <div className="chat-container">
             <div className="chat-header">
-              <h1>AI 聊天机器人</h1>
+              <h1>测试Demo界面</h1>
               <div className="model-controls">
                 <div className="model-name">
                   <span className="model-label">HKGAI-V1</span>

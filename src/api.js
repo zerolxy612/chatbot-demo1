@@ -119,3 +119,35 @@ export const callGemini = async (prompt) => {
     throw error;
   }
 };
+
+// 股票API调用函数 - 获取股票时间序列数据
+export const callStockAPI = async (ticker) => {
+  try {
+    console.log('调用股票API获取数据，股票代码:', ticker);
+
+    // 使用真实的股票API接口
+    const apiUrl = `https://finapi.hkgai.asia/hk-timeseries/${ticker}`;
+    console.log('API请求URL:', apiUrl);
+
+    const response = await fetch(apiUrl, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('股票API错误响应:', response.status, errorText);
+      throw new Error(`Stock API error! status: ${response.status}, message: ${errorText}`);
+    }
+
+    const data = await response.json();
+    console.log('股票API响应:', data);
+
+    return data;
+  } catch (error) {
+    console.error('股票API调用失败:', error);
+    throw error;
+  }
+};

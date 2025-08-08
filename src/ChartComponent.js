@@ -35,13 +35,13 @@ const ChartComponent = ({ config, description }) => {
 
   return (
     <div className="chart-container">
-      <div 
-        ref={chartRef} 
+      <div
+        ref={chartRef}
         className="chart-canvas"
-        style={{ 
-          width: '100%', 
-          height: '400px',
-          minHeight: '300px'
+        style={{
+          width: '100%',
+          height: '450px',
+          minHeight: '350px'
         }}
       />
       {description && (
