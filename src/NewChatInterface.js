@@ -1187,10 +1187,10 @@ function NewChatInterface({ onToggleInterface }) {
           <button
             className="interface-toggle"
             onClick={onToggleInterface}
-            title="切换到原界面"
+            title="返回主界面"
           >
             <span className="toggle-icon">🔄</span>
-            切换界面
+            返回主界面
           </button>
           <div className="new-interface-badge">
             <span className="badge-icon">✨</span>

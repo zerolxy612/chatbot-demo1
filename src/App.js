@@ -656,10 +656,10 @@ function App() {
                   <button
                     className="interface-toggle"
                     onClick={toggleInterface}
-                    title="切换到新界面"
+                    title="切换到Fin测试界面"
                   >
                     <span className="toggle-icon">🔄</span>
-                    切换界面
+                    Fin测试界面
                   </button>
                   <button
                     className={`control-btn ${isThinkingEnabled ? 'active' : ''}`}
