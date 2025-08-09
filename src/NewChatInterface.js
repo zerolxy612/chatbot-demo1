@@ -341,7 +341,7 @@ function NewChatInterface({ onToggleInterface }) {
         return `${date.getMonth() + 1}-${date.getDate()}`;
       }),
       yAxis: rangeData.map(item => item.close),
-      description: `${stockData.ticker} ${timeRange}时间段股价数据，当前价格: ${stockData.currency} ${lastPrice}`,
+      description: `${stockData.ticker} ${timeRange}时间段股价数据，当前价格: ${stockData.currency} ${lastPrice.toFixed(2)}`,
       // 保存原始数据用于高级图表
       rawData: {
         ohlc: rangeData.map(item => [item.open, item.high, item.low, item.close]),
