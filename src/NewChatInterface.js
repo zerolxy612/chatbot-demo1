@@ -400,7 +400,7 @@ function NewChatInterface({ onToggleInterface }) {
               `;
             }
 
-            return `${date}<br/>价格: ${chartData.stockInfo?.currency || ''} ${value}`;
+            return `${date}<br/>价格: ${chartData.stockInfo?.currency || ''} ${value.toFixed(2)}`;
           }
           return '';
         }
@@ -541,7 +541,7 @@ function NewChatInterface({ onToggleInterface }) {
         if (isStockChart) {
           config.title = {
             ...config.title,
-            subtext: `当前: ${chartData.stockInfo.currency} ${chartData.stockInfo.currentPrice} (${chartData.stockInfo.priceChangePercent}%) | 区间: ${chartData.stockInfo.lowestPrice.toFixed(2)} - ${chartData.stockInfo.highestPrice.toFixed(2)}`,
+            subtext: `当前: ${chartData.stockInfo.currency} ${chartData.stockInfo.currentPrice.toFixed(2)} (${chartData.stockInfo.priceChangePercent}%) | 区间: ${chartData.stockInfo.lowestPrice.toFixed(2)} - ${chartData.stockInfo.highestPrice.toFixed(2)}`,
             subtextStyle: {
               color: chartData.stockInfo.isUp ? '#00da3c' : '#ec0000',
               fontSize: 12
