@@ -36,13 +36,19 @@ export const testStockAPI = async () => {
         source: data.source
       });
       
-      // 检查数据完整性
+      // 检查数据完整性和价格范围
       if (data.ranges && data.ranges['1M']) {
         const monthData = data.ranges['1M'];
         console.log(`📊 1M数据点数量: ${monthData.length}`);
         if (monthData.length > 0) {
           const latest = monthData[monthData.length - 1];
+          const highest = Math.max(...monthData.map(item => item.high));
+          const lowest = Math.min(...monthData.map(item => item.low));
+          const range = highest - lowest;
+
           console.log(`📈 最新价格: ${data.currency} ${latest.close}`);
+          console.log(`📊 价格区间: ${lowest.toFixed(2)} - ${highest.toFixed(2)} (波动: ${range.toFixed(2)})`);
+          console.log(`📈 波动率: ${((range / lowest) * 100).toFixed(2)}%`);
         }
       }
       

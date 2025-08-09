@@ -319,12 +319,17 @@ function NewChatInterface({ onToggleInterface }) {
 
     const rangeData = stockData.ranges[timeRange];
 
-    // 计算涨跌情况
+    // 计算涨跌情况和价格范围
     const firstPrice = rangeData[0]?.close || 0;
     const lastPrice = rangeData[rangeData.length - 1]?.close || 0;
     const priceChange = lastPrice - firstPrice;
     const priceChangePercent = firstPrice > 0 ? ((priceChange / firstPrice) * 100).toFixed(2) : 0;
     const isUp = priceChange >= 0;
+
+    // 计算时段内的最高价和最低价
+    const highestPrice = Math.max(...rangeData.map(item => item.high));
+    const lowestPrice = Math.min(...rangeData.map(item => item.low));
+    const priceRange = highestPrice - lowestPrice;
 
     return {
       isChart: true,
@@ -351,7 +356,10 @@ function NewChatInterface({ onToggleInterface }) {
         currentPrice: lastPrice,
         priceChange: priceChange,
         priceChangePercent: priceChangePercent,
-        isUp: isUp
+        isUp: isUp,
+        highestPrice: highestPrice,
+        lowestPrice: lowestPrice,
+        priceRange: priceRange
       }
     };
   };
@@ -428,7 +436,22 @@ function NewChatInterface({ onToggleInterface }) {
               formatter: isStockChart ?
                 (value) => `${chartData.stockInfo?.currency || ''} ${value.toFixed(2)}` :
                 undefined
-            }
+            },
+            // 为股票图表设置纵轴范围为最低点和最高点，突出显示波动
+            min: isStockChart ? () => {
+              const minValue = Math.min(...chartData.yAxis);
+              const maxValue = Math.max(...chartData.yAxis);
+              const range = maxValue - minValue;
+              // 在最低点基础上留出5%的缓冲空间
+              return Math.max(0, minValue - range * 0.05);
+            } : undefined,
+            max: isStockChart ? () => {
+              const minValue = Math.min(...chartData.yAxis);
+              const maxValue = Math.max(...chartData.yAxis);
+              const range = maxValue - minValue;
+              // 在最高点基础上留出5%的缓冲空间
+              return maxValue + range * 0.05;
+            } : undefined
           },
           series: [{
             data: chartData.yAxis,
@@ -456,26 +479,72 @@ function NewChatInterface({ onToggleInterface }) {
                 ]
               }
             } : undefined,
+            // 暂时注释掉标记点，查看基础图表效果
+            /*
             markPoint: isStockChart ? {
               data: [
-                { type: 'max', name: '最高点' },
-                { type: 'min', name: '最低点' }
+                {
+                  type: 'max',
+                  name: '最高点',
+                  label: {
+                    formatter: (params) => {
+                      const currency = chartData.stockInfo?.currency || '';
+                      return `${currency} ${params.value.toFixed(2)}`;
+                    },
+                    fontSize: 12,
+                    fontWeight: 'bold',
+                    color: '#fff',
+                    backgroundColor: '#00da3c',
+                    padding: [4, 8],
+                    borderRadius: 4
+                  }
+                },
+                {
+                  type: 'min',
+                  name: '最低点',
+                  label: {
+                    formatter: (params) => {
+                      const currency = chartData.stockInfo?.currency || '';
+                      return `${currency} ${params.value.toFixed(2)}`;
+                    },
+                    fontSize: 12,
+                    fontWeight: 'bold',
+                    color: '#fff',
+                    backgroundColor: '#ec0000',
+                    padding: [4, 8],
+                    borderRadius: 4
+                  }
+                }
               ],
               itemStyle: {
-                color: lineColor
+                color: (params) => {
+                  // 最高点用绿色，最低点用红色
+                  return params.data.type === 'max' ? '#00da3c' : '#ec0000';
+                },
+                borderColor: '#fff',
+                borderWidth: 2
+              },
+              symbolSize: 10,
+              // 设置标注点的位置
+              emphasis: {
+                itemStyle: {
+                  shadowBlur: 10,
+                  shadowColor: 'rgba(0, 0, 0, 0.3)'
+                }
               }
             } : undefined
+            */
           }]
         };
 
-        // 为股票图表添加副标题
+        // 为股票图表添加副标题，显示价格范围信息
         if (isStockChart) {
           config.title = {
             ...config.title,
-            subtext: `当前价格: ${chartData.stockInfo.currency} ${chartData.stockInfo.currentPrice} (${chartData.stockInfo.priceChangePercent}%)`,
+            subtext: `当前: ${chartData.stockInfo.currency} ${chartData.stockInfo.currentPrice} (${chartData.stockInfo.priceChangePercent}%) | 区间: ${chartData.stockInfo.lowestPrice.toFixed(2)} - ${chartData.stockInfo.highestPrice.toFixed(2)}`,
             subtextStyle: {
               color: chartData.stockInfo.isUp ? '#00da3c' : '#ec0000',
-              fontSize: 14
+              fontSize: 12
             }
           };
         }
