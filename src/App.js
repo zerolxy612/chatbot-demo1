@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import './App.css';
 import { callOpenAI } from './api';
 import NewChatInterface from './NewChatInterface';
+import LawChatInterface from './LawChatInterface';
 
 function App() {
   const [messages, setMessages] = useState([]);
@@ -12,19 +13,25 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [isRagLoading, setIsRagLoading] = useState(false); // RAG接口加载状态
   const [isNewInterface, setIsNewInterface] = useState(false); // 界面切换状态
-  const [currentInterface, setCurrentInterface] = useState('main'); // 当前界面：'main', 'fin', 'law'
+  const [isLawInterface, setIsLawInterface] = useState(false); // Law界面切换状态
   const messagesEndRef = useRef(null);
 
   // 界面切换函数
   const toggleInterface = () => {
     setIsNewInterface(!isNewInterface);
-    setCurrentInterface(isNewInterface ? 'main' : 'fin');
+    setIsLawInterface(false); // 确保law界面关闭
   };
 
   // law界面切换函数
   const toggleLawInterface = () => {
-    // 暂时显示提示信息，后续可以实现完整的law界面
-    alert('law测试界面功能正在开发中，敬请期待！');
+    setIsLawInterface(!isLawInterface);
+    setIsNewInterface(false); // 确保fin界面关闭
+  };
+
+  // 返回主界面函数
+  const returnToMainInterface = () => {
+    setIsNewInterface(false);
+    setIsLawInterface(false);
   };
 
   // 根据开关状态生成模型名称
@@ -678,7 +685,7 @@ function App() {
   return (
     <div className="App">
       <div className="interface-container">
-        <div className={`interface-slide ${!isNewInterface ? 'active' : 'slide-left'}`}>
+        <div className={`interface-slide ${!isNewInterface && !isLawInterface ? 'active' : 'slide-left'}`}>
           <div className="chat-container">
             <div className="chat-header">
               <h1>测试Demo界面</h1>
@@ -955,8 +962,12 @@ function App() {
           </div>
         </div>
 
-        <div className={`interface-slide ${isNewInterface ? 'active' : 'slide-right'}`}>
-          <NewChatInterface onToggleInterface={toggleInterface} />
+        <div className={`interface-slide ${isNewInterface && !isLawInterface ? 'active' : 'slide-right'}`}>
+          <NewChatInterface onToggleInterface={returnToMainInterface} />
+        </div>
+
+        <div className={`interface-slide ${isLawInterface ? 'active' : 'slide-right'}`}>
+          <LawChatInterface onToggleInterface={returnToMainInterface} />
         </div>
       </div>
     </div>
