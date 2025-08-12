@@ -272,21 +272,39 @@ function App() {
     setInputValue('');
     setIsLoading(true);
 
+    // 创建一个临时的loading消息
+    const tempMessageId = Date.now();
+    const loadingMessage = {
+      id: tempMessageId,
+      role: 'assistant',
+      content: '🤖 HKGAI-V1 正在思考中...',
+      isLoading: true,
+      isStreaming: true
+    };
+
+    setMessages(prev => [...prev, loadingMessage]);
+
     try {
       const response = await callOpenAI(getModelName(), currentInput);
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let assistantMessage = {
+        id: tempMessageId, // 使用相同的ID来替换loading消息
         role: 'assistant',
         content: '',
         rawContent: '',
         thinkContent: '',
         mainContent: '',
-        searchResults: []
+        searchResults: [],
+        isLoading: false,
+        isStreaming: true
       };
 
-      setMessages(prev => [...prev, assistantMessage]);
+      // 替换loading消息为实际消息
+      setMessages(prev => prev.map(msg =>
+        msg.id === tempMessageId ? assistantMessage : msg
+      ));
 
       while (true) {
         const { done, value } = await reader.read();
@@ -314,11 +332,9 @@ function App() {
                 assistantMessage.searchResults = parsedContent.searchResults;
                 assistantMessage.content = assistantMessage.mainContent; // 保持兼容性
 
-                setMessages(prev => {
-                  const newMessages = [...prev];
-                  newMessages[newMessages.length - 1] = { ...assistantMessage };
-                  return newMessages;
-                });
+                setMessages(prev => prev.map(msg =>
+                  msg.id === tempMessageId ? { ...assistantMessage } : msg
+                ));
               }
             } catch (e) {
               // Ignore parsing errors for incomplete JSON
@@ -326,6 +342,15 @@ function App() {
           }
         }
       }
+
+      // 流式响应完成，更新状态
+      setMessages(prev => prev.map(msg =>
+        msg.id === tempMessageId ? {
+          ...msg,
+          isStreaming: false
+        } : msg
+      ));
+
     } catch (error) {
       console.error('Error:', error);
 
@@ -341,11 +366,15 @@ function App() {
         errorMessage = '⏰ API调用频率过高，请稍等片刻后重试。';
       }
 
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: errorMessage,
-        isError: true
-      }]);
+      setMessages(prev => prev.map(msg =>
+        msg.id === tempMessageId ? {
+          ...msg,
+          content: errorMessage,
+          isError: true,
+          isLoading: false,
+          isStreaming: false
+        } : msg
+      ));
     } finally {
       setIsLoading(false);
     }
@@ -685,8 +714,18 @@ function App() {
               <div className="message-content">
                 {message.role === 'assistant' ? (
                   <div>
-                    {/* RAG响应特殊显示 */}
-                    {message.isRagResponse ? (
+                    {/* OneAPI Loading状态显示 */}
+                    {message.isLoading ? (
+                      <div className="rag-response">
+                        <div className="rag-header">
+                          <span className="rag-icon">🤖</span>
+                          <span className="rag-label">HKGAI-V1</span>
+                        </div>
+                        <div className="rag-content" data-streaming={message.isStreaming}>
+                          <ReactMarkdown>{message.content}</ReactMarkdown>
+                        </div>
+                      </div>
+                    ) : message.isRagResponse ? (
                       <div className="rag-response">
                         <div className="rag-header">
                           <span className="rag-icon">🔍</span>
