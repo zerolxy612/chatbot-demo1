@@ -25,14 +25,12 @@ export default async function handler(req, res) {
     console.log('Law RAG API - Processing POST request');
     console.log('Law RAG API - Request body:', req.body);
 
-    const { model, messages, stream } = req.body || {};
-
-    console.log('Law RAG API - Extracted params:', { model, messages, stream });
-
-    // 检查必要参数
-    if (!messages || !Array.isArray(messages)) {
-      throw new Error('Missing required parameter: messages');
-    }
+    // 构建目标URL路径
+    const pathSegments = req.query.path || [];
+    const targetPath = Array.isArray(pathSegments) ? pathSegments.join('/') : pathSegments;
+    const targetUrl = `https://lexihkrag-test.hkgai.asia/${targetPath}`;
+    
+    console.log('Law RAG API - Target URL:', targetUrl);
 
     // 检查fetch是否可用
     if (typeof fetch === 'undefined') {
@@ -42,24 +40,13 @@ export default async function handler(req, res) {
 
     console.log('Law RAG API - About to call external API');
 
-    // 构建目标URL - 保持原始路径
-    const pathArray = req.query.path || [];
-    const targetPath = Array.isArray(pathArray) ? pathArray.join('/') : pathArray;
-    const targetUrl = `https://lexihkrag-test.hkgai.asia/${targetPath}`;
-    
-    console.log('Law RAG API - Target URL:', targetUrl);
-
     // 转发请求到实际的Law RAG API
     const response = await fetch(targetUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        model: model || "gpt-3.5-turbo",
-        messages,
-        stream: stream || false
-      })
+      body: JSON.stringify(req.body)
     });
 
     console.log('Law RAG API - External API response status:', response.status);
@@ -70,7 +57,7 @@ export default async function handler(req, res) {
       throw new Error(`External API error! status: ${response.status}, message: ${errorText}`);
     }
 
-    // 返回响应数据
+    // 获取响应数据
     const data = await response.json();
     console.log('Law RAG API - Successfully received data from external API');
     res.status(200).json(data);

@@ -25,14 +25,12 @@ export default async function handler(req, res) {
     console.log('Law Multisearch API - Processing POST request');
     console.log('Law Multisearch API - Request body:', req.body);
 
-    const { query, generate_overview, streaming, recalls } = req.body || {};
-
-    console.log('Law Multisearch API - Extracted params:', { query, generate_overview, streaming, recalls });
-
-    // 检查必要参数
-    if (!query) {
-      throw new Error('Missing required parameter: query');
-    }
+    // 构建目标URL路径
+    const pathSegments = req.query.path || [];
+    const targetPath = Array.isArray(pathSegments) ? pathSegments.join('/') : pathSegments;
+    const targetUrl = `https://lexihk-search-test.hkgai.asia/${targetPath}`;
+    
+    console.log('Law Multisearch API - Target URL:', targetUrl);
 
     // 检查fetch是否可用
     if (typeof fetch === 'undefined') {
@@ -42,29 +40,13 @@ export default async function handler(req, res) {
 
     console.log('Law Multisearch API - About to call external API');
 
-    // 构建目标URL - 保持原始路径
-    const pathArray = req.query.path || [];
-    const targetPath = Array.isArray(pathArray) ? pathArray.join('/') : pathArray;
-    const targetUrl = `https://lexihk-search-test.hkgai.asia/${targetPath}`;
-    
-    console.log('Law Multisearch API - Target URL:', targetUrl);
-
     // 转发请求到实际的Law Multisearch API
     const response = await fetch(targetUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        query,
-        generate_overview: generate_overview || false,
-        streaming: streaming || false,
-        recalls: recalls || {
-          hk_ordinance: {},
-          hk_case: {},
-          google: {}
-        }
-      })
+      body: JSON.stringify(req.body)
     });
 
     console.log('Law Multisearch API - External API response status:', response.status);
@@ -75,7 +57,7 @@ export default async function handler(req, res) {
       throw new Error(`External API error! status: ${response.status}, message: ${errorText}`);
     }
 
-    // 返回响应数据
+    // 获取响应数据
     const data = await response.json();
     console.log('Law Multisearch API - Successfully received data from external API');
     res.status(200).json(data);
