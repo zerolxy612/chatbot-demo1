@@ -50,6 +50,11 @@
   gap: 15px;
 }
 
+.interface-buttons {
+  display: flex;
+  gap: 8px;
+}
+
 .model-name {
   display: flex;
   align-items: center;
@@ -873,6 +878,18 @@
   transform: rotate(180deg);
 }
 
+/* law测试界面按钮特殊样式 */
+.law-toggle {
+  background: rgba(255, 193, 7, 0.15) !important;
+  border-color: rgba(255, 193, 7, 0.3) !important;
+}
+
+.law-toggle:hover {
+  background: rgba(255, 193, 7, 0.25) !important;
+  border-color: rgba(255, 193, 7, 0.5) !important;
+  box-shadow: 0 4px 12px rgba(255, 193, 7, 0.2) !important;
+}
+
 /* 界面切换动画 */
 .interface-container {
   position: relative;
@@ -953,6 +970,10 @@
     flex-direction: column;
     align-items: flex-start;
     gap: 10px;
+  }
+
+  .interface-buttons {
+    flex-wrap: wrap;
   }
 
   .control-buttons {

@@ -3,7 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import { callStockAPI } from './api';
 import ChartComponent from './ChartComponent';
 
-// 已删除：Gemini提示词模板
+
 
 
 

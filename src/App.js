@@ -12,11 +12,19 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [isRagLoading, setIsRagLoading] = useState(false); // RAG接口加载状态
   const [isNewInterface, setIsNewInterface] = useState(false); // 界面切换状态
+  const [currentInterface, setCurrentInterface] = useState('main'); // 当前界面：'main', 'fin', 'law'
   const messagesEndRef = useRef(null);
 
   // 界面切换函数
   const toggleInterface = () => {
     setIsNewInterface(!isNewInterface);
+    setCurrentInterface(isNewInterface ? 'main' : 'fin');
+  };
+
+  // law界面切换函数
+  const toggleLawInterface = () => {
+    // 暂时显示提示信息，后续可以实现完整的law界面
+    alert('law测试界面功能正在开发中，敬请期待！');
   };
 
   // 根据开关状态生成模型名称
@@ -675,13 +683,7 @@ function App() {
             <div className="chat-header">
               <h1>测试Demo界面</h1>
               <div className="model-controls">
-                <div className="model-name">
-                  <span className="model-label">HKGAI-V1</span>
-                  <span className="model-status">
-                    {isThinkingEnabled && "🧠"} {isNetworkEnabled && "🌐"}
-                  </span>
-                </div>
-                <div className="control-buttons">
+                <div className="interface-buttons">
                   <button
                     className="interface-toggle"
                     onClick={toggleInterface}
@@ -690,6 +692,22 @@ function App() {
                     <span className="toggle-icon">🔄</span>
                     Fin测试界面
                   </button>
+                  <button
+                    className="interface-toggle law-toggle"
+                    onClick={toggleLawInterface}
+                    title="切换到law测试界面"
+                  >
+                    <span className="toggle-icon">⚖️</span>
+                    law测试界面
+                  </button>
+                </div>
+                <div className="model-name">
+                  <span className="model-label">HKGAI-V1</span>
+                  <span className="model-status">
+                    {isThinkingEnabled && "🧠"} {isNetworkEnabled && "🌐"}
+                  </span>
+                </div>
+                <div className="control-buttons">
                   <button
                     className={`control-btn ${isThinkingEnabled ? 'active' : ''}`}
                     onClick={() => setIsThinkingEnabled(!isThinkingEnabled)}
