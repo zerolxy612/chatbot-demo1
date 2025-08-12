@@ -34,7 +34,7 @@ export default async function handler(req, res) {
     console.log('Law Multisearch API - About to call external API');
 
     // 转发请求到实际的Law Multisearch API
-    const targetUrl = 'https://lexihkrag-test.hkgai.asia/multisearch';
+    const targetUrl = 'https://lexihk-search-test.hkgai.asia/multisearch';
     console.log('Law Multisearch API - Target URL:', targetUrl);
 
     const response = await fetch(targetUrl, {
