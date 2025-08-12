@@ -609,9 +609,6 @@
 .message-content p {
   margin: 8px 0;
   line-height: 1.6;
-  word-wrap: break-word;
-  word-break: break-word;
-  overflow-wrap: break-word;
 }
 
 .message-content ul,
