@@ -7,23 +7,7 @@ function LawChatInterface({ onToggleInterface }) {
       role: 'assistant',
       content: `⚖️ **Law 测试界面**！
 
-🎯 **专门功能**：
-📚 **法律咨询服务**：
-  • 香港法律条文查询和解释
-  • 法律案例检索和分析
-  • 法律风险评估
-  • 诉讼程序指导
-
-💼 **API服务**：
-  • **rag按钮**: 法律问答服务 (lexihkrag-test.hkgai.asia)
-  • **multisearch按钮**: 多源法律检索 (lexihk-search-test.hkgai.asia)
-
-🔍 **使用方法**：
-  • 输入法律问题，点击rag获取AI回答
-  • 输入关键词，点击multisearch进行多源检索
-  • 支持香港法例、案例、Google搜索
-
-⚠️ **免责声明**：本服务仅供参考，不构成正式法律建议。重要法律事务请咨询专业律师。`
+`
     }
   ]);
   const [inputValue, setInputValue] = useState('');
