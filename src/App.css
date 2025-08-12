@@ -758,6 +758,23 @@
   box-shadow: 0 4px 12px rgba(255, 107, 107, 0.4) !important;
 }
 
+/* Law界面按钮样式 */
+.law-rag-button {
+  background: linear-gradient(135deg, #ffc107 0%, #ff8f00 100%) !important;
+}
+
+.law-rag-button:hover:not(:disabled) {
+  box-shadow: 0 4px 12px rgba(255, 193, 7, 0.4) !important;
+}
+
+.law-multisearch-button {
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%) !important;
+}
+
+.law-multisearch-button:hover:not(:disabled) {
+  box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4) !important;
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -1232,6 +1249,160 @@
   font-size: 0.8em;
   font-weight: bold;
   margin-right: 8px;
+}
+
+/* 法律RAG响应样式 */
+.law-rag-response {
+  background: #fff8e1;
+  border: 1px solid #ffcc02;
+  border-radius: 12px;
+  padding: 15px;
+  border-left: 4px solid #ffc107;
+}
+
+.law-rag-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-weight: 600;
+  color: #ff8f00;
+  font-size: 14px;
+}
+
+.law-rag-icon {
+  font-size: 16px;
+}
+
+.law-rag-label {
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.law-rag-content {
+  color: #333;
+  margin-bottom: 15px;
+}
+
+/* 法律多源检索响应样式 */
+.law-multisearch-response {
+  background: #e8f5e8;
+  border: 1px solid #4caf50;
+  border-radius: 12px;
+  padding: 15px;
+  border-left: 4px solid #28a745;
+}
+
+.law-multisearch-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-weight: 600;
+  color: #2e7d32;
+  font-size: 14px;
+}
+
+.law-multisearch-icon {
+  font-size: 16px;
+}
+
+.law-multisearch-label {
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.law-multisearch-content {
+  color: #333;
+  margin-bottom: 15px;
+}
+
+/* 法律检索结果样式 */
+.law-search-results {
+  border-top: 1px solid #e0e0e0;
+  padding-top: 15px;
+  margin-top: 15px;
+}
+
+.search-results-header {
+  font-weight: 600;
+  color: #2e7d32;
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+.search-results-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.search-result-item {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-left: 4px solid #28a745;
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 13px;
+  transition: box-shadow 0.2s ease;
+}
+
+.search-result-item:hover {
+  box-shadow: 0 2px 8px rgba(40, 167, 69, 0.1);
+}
+
+.result-title {
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 6px;
+  line-height: 1.3;
+}
+
+.result-snippet {
+  color: #666;
+  line-height: 1.4;
+  margin-bottom: 10px;
+}
+
+.result-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 11px;
+}
+
+.result-source, .result-score, .result-type {
+  background: #f0f0f0;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #666;
+}
+
+.result-type {
+  background: #e3f2fd;
+  color: #1976d2;
+}
+
+.result-link-container {
+  margin-top: 8px;
+  padding: 8px;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  border-left: 3px solid #28a745;
+}
+
+.result-link {
+  color: #28a745;
+  text-decoration: none;
+  font-size: 11px;
+  word-break: break-all;
+  line-height: 1.4;
+}
+
+.result-link:hover {
+  text-decoration: underline;
+  color: #1e7e34;
 }
 
 /* 紧凑的主要内容样式 - 极致压缩版本 */

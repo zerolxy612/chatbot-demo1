@@ -1,6 +1,34 @@
 const { createProxyMiddleware } = require('http-proxy-middleware');
 
 module.exports = function(app) {
+  // Law Demo RAG API代理
+  app.use(
+    '/api/law/rag',
+    createProxyMiddleware({
+      target: 'https://lexihkrag-test.hkgai.asia',
+      changeOrigin: true,
+      pathRewrite: {
+        '^/api/law/rag': '/', // 重写到根路径
+      },
+      secure: true,
+      logLevel: 'debug'
+    })
+  );
+
+  // Law Demo 多源检索API代理
+  app.use(
+    '/api/law/multisearch',
+    createProxyMiddleware({
+      target: 'https://lexihk-search-test.hkgai.asia',
+      changeOrigin: true,
+      pathRewrite: {
+        '^/api/law/multisearch': '/', // 重写到根路径
+      },
+      secure: true,
+      logLevel: 'debug'
+    })
+  );
+
   // 新的RAG API代理 - 必须放在更通用的/api代理之前
   app.use(
     '/api/rag',
