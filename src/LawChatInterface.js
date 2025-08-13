@@ -299,7 +299,7 @@ function LawChatInterface({ onToggleInterface }) {
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="请描述您的法律问题：合同审查、法律咨询、诉讼指导..."
+          placeholder="请描述您的法律问题"
           disabled={isLoading}
           rows="3"
         />
