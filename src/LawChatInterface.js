@@ -1,6 +1,30 @@
 import React, { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 
+// 处理法律RAG内容的函数
+const cleanLawRagContent = (content) => {
+  if (!content) return content;
+
+  let cleaned = content;
+
+  // 1. 移除 <think> 标签及其内容
+  cleaned = cleaned.replace(/<think>[\s\S]*?<\/think>/gi, '');
+
+  // 2. 移除最外层的代码块标记（包括语言标识符）
+  cleaned = cleaned.replace(/^```[a-zA-Z]*\n?/, '').replace(/\n?```$/g, '');
+
+  // 3. 移除所有剩余的代码块标记
+  cleaned = cleaned.replace(/```[a-zA-Z]*\n?/g, '').replace(/\n?```/g, '');
+
+  // 4. 清理多余的换行符
+  cleaned = cleaned.replace(/^\n+/, '').replace(/\n+$/, '');
+
+  // 5. 标准化换行符（确保段落间有适当间距）
+  cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
+
+  return cleaned;
+};
+
 function LawChatInterface({ onToggleInterface }) {
   const [messages, setMessages] = useState([
     {
@@ -42,7 +66,7 @@ function LawChatInterface({ onToggleInterface }) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: "gpt-3.5-turbo",
+          model: "HKGAI-V1-Thinking-RAG-Chat",
           messages: [
             {
               role: "user",
@@ -62,7 +86,13 @@ function LawChatInterface({ onToggleInterface }) {
 
       let assistantContent = '';
       if (data.choices && data.choices[0] && data.choices[0].message) {
-        assistantContent = data.choices[0].message.content;
+        const rawContent = data.choices[0].message.content;
+        console.log('原始内容:', rawContent);
+
+        // 使用清理函数处理内容
+        assistantContent = cleanLawRagContent(rawContent);
+        console.log('清理后内容:', assistantContent);
+
       } else {
         assistantContent = '抱歉，未能获取到有效的法律咨询回复。';
       }
