@@ -281,7 +281,7 @@ function LawChatInterface({ onToggleInterface }) {
                 <div className="law-multisearch-response">
                   <div className="law-multisearch-header">
                     <span className="law-multisearch-icon">🔍</span>
-                    <span className="law-multisearch-label">法律多源检索结果</span>
+                    <span className="law-multisearch-label">法律检索结果</span>
                   </div>
                   <div className="law-multisearch-content">
                     <ReactMarkdown>{message.content}</ReactMarkdown>
