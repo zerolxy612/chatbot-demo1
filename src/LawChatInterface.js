@@ -58,6 +58,7 @@ function LawChatInterface({ onToggleInterface }) {
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isMultisearchLoading, setIsMultisearchLoading] = useState(false);
+  const [isStreaming, setIsStreaming] = useState(false);
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -70,7 +71,7 @@ function LawChatInterface({ onToggleInterface }) {
 
   // 调用法律RAG API
   const callLawRagApi = async () => {
-    if (!inputValue.trim() || isLoading) return;
+    if (!inputValue.trim() || isLoading || isStreaming || isMultisearchLoading) return;
 
     const userMessage = { role: 'user', content: inputValue };
     const currentInput = inputValue;
@@ -118,8 +119,9 @@ function LawChatInterface({ onToggleInterface }) {
           if (line.startsWith('data: ')) {
             const data = line.slice(6);
             if (data === '[DONE]') {
-              // 流式传输完成，确保loading状态结束
+              // 流式传输完成，重置所有状态
               setIsLoading(false);
+              setIsStreaming(false);
 
               // 如果消息已创建，解析最终内容
               if (messageCreated) {
@@ -147,7 +149,9 @@ function LawChatInterface({ onToggleInterface }) {
                 setIsLoading(false);
 
                 if (!messageCreated) {
-                  // 第一次接收到内容，创建消息
+                  // 第一次接收到内容，创建消息并设置流式状态
+                  setIsStreaming(true);
+
                   const assistantMessage = {
                     id: tempMessageId,
                     role: 'assistant',
@@ -211,14 +215,15 @@ function LawChatInterface({ onToggleInterface }) {
         isError: true
       }]);
     } finally {
-      // 确保loading状态结束（如果还没有结束的话）
+      // 确保所有状态结束（如果还没有结束的话）
       setIsLoading(false);
+      setIsStreaming(false);
     }
   };
 
   // 调用法律多源检索API
   const callLawMultisearchApi = async () => {
-    if (!inputValue.trim() || isMultisearchLoading) return;
+    if (!inputValue.trim() || isLoading || isStreaming || isMultisearchLoading) return;
 
     const userMessage = { role: 'user', content: inputValue };
     const currentInput = inputValue;
@@ -294,8 +299,11 @@ function LawChatInterface({ onToggleInterface }) {
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      // 默认使用rag API
-      callLawRagApi();
+      // 检查是否可以发送（不在loading、streaming或multisearch过程中）
+      if (!isLoading && !isStreaming && !isMultisearchLoading && inputValue.trim()) {
+        // 默认使用rag API
+        callLawRagApi();
+      }
     }
   };
 
@@ -436,20 +444,20 @@ function LawChatInterface({ onToggleInterface }) {
           onChange={(e) => setInputValue(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="请描述您的法律问题"
-          disabled={isLoading}
+          disabled={isLoading || isStreaming || isMultisearchLoading}
           rows="3"
         />
         <div className="button-group">
           <button
             onClick={callLawRagApi}
-            disabled={isLoading || isMultisearchLoading || !inputValue.trim()}
+            disabled={isLoading || isStreaming || isMultisearchLoading || !inputValue.trim()}
             className="law-rag-button"
           >
-            {isLoading ? '咨询中...' : 'rag'}
+            {isLoading || isStreaming ? '咨询中...' : 'rag'}
           </button>
           <button
             onClick={callLawMultisearchApi}
-            disabled={isLoading || isMultisearchLoading || !inputValue.trim()}
+            disabled={isLoading || isStreaming || isMultisearchLoading || !inputValue.trim()}
             className="law-multisearch-button"
           >
             {isMultisearchLoading ? '检索中...' : 'multisearch'}
