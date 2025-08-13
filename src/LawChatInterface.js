@@ -5,15 +5,27 @@ import ReactMarkdown from 'react-markdown';
 const parseLawRagContent = (content) => {
   if (!content) return { thinkContent: '', mainContent: '' };
 
+  let processedContent = content;
+
+  // 如果内容以 <search_results> 开头但还没有结束标签，暂时不显示任何内容
+  if (processedContent.startsWith('<search_results>') && !processedContent.includes('</search_results>')) {
+    return { thinkContent: '', mainContent: '' };
+  }
+
+  // 如果内容以 <think> 开头但还没有结束标签，暂时不显示任何内容
+  if (processedContent.startsWith('<think>') && !processedContent.includes('</think>')) {
+    return { thinkContent: '', mainContent: '' };
+  }
+
+  // 移除搜索结果标签内容（完整的标签对）
+  processedContent = processedContent.replace(/<search_results>[\s\S]*?<\/search_results>/gi, '');
+
   // 查找<think>标签的位置
-  const thinkMatch = content.match(/<think>([\s\S]*?)<\/think>/);
+  const thinkMatch = processedContent.match(/<think>([\s\S]*?)<\/think>/);
   const thinkContent = thinkMatch ? thinkMatch[1].trim() : '';
 
   // 移除think标签后的内容
-  let mainContent = content.replace(/<think>[\s\S]*?<\/think>/gi, '');
-
-  // 移除搜索结果标签内容
-  mainContent = mainContent.replace(/<search_results>[\s\S]*?<\/search_results>/gi, '');
+  let mainContent = processedContent.replace(/<think>[\s\S]*?<\/think>/gi, '');
 
   // 清理主要内容
   // 1. 移除最外层的代码块标记（包括语言标识符）
@@ -67,8 +79,6 @@ function LawChatInterface({ onToggleInterface }) {
     setIsLoading(true);
 
     try {
-      console.log('调用法律RAG API (流式):', currentInput);
-
       // 创建临时消息ID
       const tempMessageId = Date.now().toString();
       let messageCreated = false;
@@ -217,8 +227,6 @@ function LawChatInterface({ onToggleInterface }) {
     setIsMultisearchLoading(true);
 
     try {
-      console.log('调用法律多源检索API:', currentInput);
-
       const response = await fetch('/api/law/multisearch/multisearch', {
         method: 'POST',
         headers: {
@@ -241,7 +249,6 @@ function LawChatInterface({ onToggleInterface }) {
       }
 
       const data = await response.json();
-      console.log('法律多源检索API响应:', data);
 
       // 处理检索结果
       let searchResults = [];
