@@ -12,6 +12,9 @@ const parseLawRagContent = (content) => {
   // 移除think标签后的内容
   let mainContent = content.replace(/<think>[\s\S]*?<\/think>/gi, '');
 
+  // 移除搜索结果标签内容
+  mainContent = mainContent.replace(/<search_results>[\s\S]*?<\/search_results>/gi, '');
+
   // 清理主要内容
   // 1. 移除最外层的代码块标记（包括语言标识符）
   mainContent = mainContent.replace(/^```[a-zA-Z]*\n?/, '').replace(/\n?```$/g, '');
@@ -64,7 +67,11 @@ function LawChatInterface({ onToggleInterface }) {
     setIsLoading(true);
 
     try {
-      console.log('调用法律RAG API:', currentInput);
+      console.log('调用法律RAG API (流式):', currentInput);
+
+      // 创建临时消息ID
+      const tempMessageId = Date.now().toString();
+      let messageCreated = false;
 
       const response = await fetch('/api/law/rag/v1/chat/completions', {
         method: 'POST',
@@ -79,7 +86,7 @@ function LawChatInterface({ onToggleInterface }) {
               content: currentInput
             }
           ],
-          stream: false
+          stream: true
         })
       });
 
@@ -87,36 +94,94 @@ function LawChatInterface({ onToggleInterface }) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json();
-      console.log('法律RAG API响应:', data);
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
 
-      let assistantMessage = {
-        role: 'assistant',
-        isLawRagResponse: true,
-        thinkContent: '',
-        mainContent: '',
-        content: ''
-      };
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
 
-      if (data.choices && data.choices[0] && data.choices[0].message) {
-        const rawContent = data.choices[0].message.content;
-        console.log('原始内容:', rawContent);
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
 
-        // 使用解析函数分离think内容和主要内容
-        const parsedContent = parseLawRagContent(rawContent);
-        assistantMessage.thinkContent = parsedContent.thinkContent;
-        assistantMessage.mainContent = parsedContent.mainContent;
-        assistantMessage.content = parsedContent.mainContent; // 保持兼容性
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+            if (data === '[DONE]') {
+              // 流式传输完成，确保loading状态结束
+              setIsLoading(false);
 
-        console.log('思考内容:', parsedContent.thinkContent);
-        console.log('主要内容:', parsedContent.mainContent);
+              // 如果消息已创建，解析最终内容
+              if (messageCreated) {
+                setMessages(prev => prev.map(msg => {
+                  if (msg.id === tempMessageId) {
+                    const parsedContent = parseLawRagContent(msg.rawContent || '');
+                    return {
+                      ...msg,
+                      isStreaming: false,
+                      thinkContent: parsedContent.thinkContent,
+                      mainContent: parsedContent.mainContent,
+                      content: parsedContent.mainContent
+                    };
+                  }
+                  return msg;
+                }));
+              }
+              break;
+            }
 
-      } else {
-        assistantMessage.content = '抱歉，未能获取到有效的法律咨询回复。';
-        assistantMessage.mainContent = assistantMessage.content;
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed.choices && parsed.choices[0] && parsed.choices[0].delta && parsed.choices[0].delta.content) {
+                // 第一次收到内容时结束loading状态并创建消息
+                setIsLoading(false);
+
+                if (!messageCreated) {
+                  // 第一次接收到内容，创建消息
+                  const assistantMessage = {
+                    id: tempMessageId,
+                    role: 'assistant',
+                    isLawRagResponse: true,
+                    isStreaming: true,
+                    rawContent: parsed.choices[0].delta.content,
+                    thinkContent: '',
+                    mainContent: '',
+                    content: ''
+                  };
+
+                  // 解析初始内容
+                  const parsedContent = parseLawRagContent(assistantMessage.rawContent);
+                  assistantMessage.thinkContent = parsedContent.thinkContent;
+                  assistantMessage.mainContent = parsedContent.mainContent;
+                  assistantMessage.content = parsedContent.mainContent;
+
+                  setMessages(prev => [...prev, assistantMessage]);
+                  messageCreated = true;
+                } else {
+                  // 累积原始内容
+                  setMessages(prev => prev.map(msg => {
+                    if (msg.id === tempMessageId) {
+                      const newRawContent = (msg.rawContent || '') + parsed.choices[0].delta.content;
+                      // 实时解析内容用于显示
+                      const parsedContent = parseLawRagContent(newRawContent);
+                      return {
+                        ...msg,
+                        rawContent: newRawContent,
+                        thinkContent: parsedContent.thinkContent,
+                        mainContent: parsedContent.mainContent,
+                        content: parsedContent.mainContent
+                      };
+                    }
+                    return msg;
+                  }));
+                }
+              }
+            } catch (e) {
+              // 忽略JSON解析错误
+            }
+          }
+        }
       }
-
-      setMessages(prev => [...prev, assistantMessage]);
 
     } catch (error) {
       console.error('法律RAG API调用失败:', error);
@@ -136,6 +201,7 @@ function LawChatInterface({ onToggleInterface }) {
         isError: true
       }]);
     } finally {
+      // 确保loading状态结束（如果还没有结束的话）
       setIsLoading(false);
     }
   };
@@ -266,16 +332,18 @@ function LawChatInterface({ onToggleInterface }) {
                     </div>
                   )}
 
-                  {/* 法律RAG主要内容 */}
-                  <div className="law-rag-response">
-                    <div className="law-rag-header">
-                      <span className="law-rag-icon">🤖</span>
-                      <span className="law-rag-label">法律RAG咨询</span>
+                  {/* 法律RAG主要内容 - 只有在有内容时才显示 */}
+                  {(message.mainContent || message.content) && (
+                    <div className="law-rag-response">
+                      <div className="law-rag-header">
+                        <span className="law-rag-icon">🤖</span>
+                        <span className="law-rag-label">法律RAG咨询</span>
+                      </div>
+                      <div className="law-rag-content" data-streaming={message.isStreaming}>
+                        <ReactMarkdown>{message.mainContent || message.content}</ReactMarkdown>
+                      </div>
                     </div>
-                    <div className="law-rag-content">
-                      <ReactMarkdown>{message.mainContent || message.content}</ReactMarkdown>
-                    </div>
-                  </div>
+                  )}
                 </div>
               ) : message.role === 'assistant' && message.isLawMultisearchResponse ? (
                 <div className="law-multisearch-response">

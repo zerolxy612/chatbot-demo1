@@ -53,10 +53,41 @@ export default async function handler(req, res) {
       throw new Error(`External API error! status: ${response.status}, message: ${errorText}`);
     }
 
-    // 获取响应数据
-    const data = await response.json();
-    console.log('Law RAG API - Successfully received data from external API');
-    res.status(200).json(data);
+    // 检查是否为流式请求
+    if (req.body.stream) {
+      console.log('Law RAG API - Handling streaming response');
+
+      // 设置流式响应头
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+
+      // 流式转发响应
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value);
+          res.write(chunk);
+        }
+        res.end();
+      } catch (streamError) {
+        console.error('Law RAG API - Streaming error:', streamError);
+        res.end();
+      }
+    } else {
+      // 非流式响应
+      const data = await response.json();
+      console.log('Law RAG API - Successfully received data from external API');
+      res.status(200).json(data);
+    }
 
   } catch (error) {
     console.error('Law RAG API - Error occurred:', error.message);
