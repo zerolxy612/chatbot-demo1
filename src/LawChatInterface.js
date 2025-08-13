@@ -1,28 +1,34 @@
 import React, { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 
-// 处理法律RAG内容的函数
-const cleanLawRagContent = (content) => {
-  if (!content) return content;
+// 解析法律RAG内容的函数 - 分离think内容和正文内容
+const parseLawRagContent = (content) => {
+  if (!content) return { thinkContent: '', mainContent: '' };
 
-  let cleaned = content;
+  // 查找<think>标签的位置
+  const thinkMatch = content.match(/<think>([\s\S]*?)<\/think>/);
+  const thinkContent = thinkMatch ? thinkMatch[1].trim() : '';
 
-  // 1. 移除 <think> 标签及其内容
-  cleaned = cleaned.replace(/<think>[\s\S]*?<\/think>/gi, '');
+  // 移除think标签后的内容
+  let mainContent = content.replace(/<think>[\s\S]*?<\/think>/gi, '');
 
-  // 2. 移除最外层的代码块标记（包括语言标识符）
-  cleaned = cleaned.replace(/^```[a-zA-Z]*\n?/, '').replace(/\n?```$/g, '');
+  // 清理主要内容
+  // 1. 移除最外层的代码块标记（包括语言标识符）
+  mainContent = mainContent.replace(/^```[a-zA-Z]*\n?/, '').replace(/\n?```$/g, '');
 
-  // 3. 移除所有剩余的代码块标记
-  cleaned = cleaned.replace(/```[a-zA-Z]*\n?/g, '').replace(/\n?```/g, '');
+  // 2. 移除所有剩余的代码块标记
+  mainContent = mainContent.replace(/```[a-zA-Z]*\n?/g, '').replace(/\n?```/g, '');
 
-  // 4. 清理多余的换行符
-  cleaned = cleaned.replace(/^\n+/, '').replace(/\n+$/, '');
+  // 3. 清理多余的换行符
+  mainContent = mainContent.replace(/^\n+/, '').replace(/\n+$/, '');
 
-  // 5. 标准化换行符（确保段落间有适当间距）
-  cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
+  // 4. 标准化换行符（确保段落间有适当间距）
+  mainContent = mainContent.replace(/\n{3,}/g, '\n\n');
 
-  return cleaned;
+  return {
+    thinkContent,
+    mainContent
+  };
 };
 
 function LawChatInterface({ onToggleInterface }) {
@@ -84,24 +90,33 @@ function LawChatInterface({ onToggleInterface }) {
       const data = await response.json();
       console.log('法律RAG API响应:', data);
 
-      let assistantContent = '';
+      let assistantMessage = {
+        role: 'assistant',
+        isLawRagResponse: true,
+        thinkContent: '',
+        mainContent: '',
+        content: ''
+      };
+
       if (data.choices && data.choices[0] && data.choices[0].message) {
         const rawContent = data.choices[0].message.content;
         console.log('原始内容:', rawContent);
 
-        // 使用清理函数处理内容
-        assistantContent = cleanLawRagContent(rawContent);
-        console.log('清理后内容:', assistantContent);
+        // 使用解析函数分离think内容和主要内容
+        const parsedContent = parseLawRagContent(rawContent);
+        assistantMessage.thinkContent = parsedContent.thinkContent;
+        assistantMessage.mainContent = parsedContent.mainContent;
+        assistantMessage.content = parsedContent.mainContent; // 保持兼容性
+
+        console.log('思考内容:', parsedContent.thinkContent);
+        console.log('主要内容:', parsedContent.mainContent);
 
       } else {
-        assistantContent = '抱歉，未能获取到有效的法律咨询回复。';
+        assistantMessage.content = '抱歉，未能获取到有效的法律咨询回复。';
+        assistantMessage.mainContent = assistantMessage.content;
       }
 
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: assistantContent,
-        isLawRagResponse: true
-      }]);
+      setMessages(prev => [...prev, assistantMessage]);
 
     } catch (error) {
       console.error('法律RAG API调用失败:', error);
@@ -237,13 +252,29 @@ function LawChatInterface({ onToggleInterface }) {
             <div className="message-content">
               {/* 法律RAG响应特殊处理 */}
               {message.role === 'assistant' && message.isLawRagResponse ? (
-                <div className="law-rag-response">
-                  <div className="law-rag-header">
-                    <span className="law-rag-icon">🤖</span>
-                    <span className="law-rag-label">法律RAG咨询</span>
-                  </div>
-                  <div className="law-rag-content">
-                    <ReactMarkdown>{message.content}</ReactMarkdown>
+                <div>
+                  {/* Think内容显示 */}
+                  {message.thinkContent && (
+                    <div className="think-content">
+                      <div className="think-header">
+                        <span className="think-icon">🤔</span>
+                        <span className="think-label">思考过程</span>
+                      </div>
+                      <div className="think-text">
+                        <ReactMarkdown>{message.thinkContent}</ReactMarkdown>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 法律RAG主要内容 */}
+                  <div className="law-rag-response">
+                    <div className="law-rag-header">
+                      <span className="law-rag-icon">🤖</span>
+                      <span className="law-rag-label">法律RAG咨询</span>
+                    </div>
+                    <div className="law-rag-content">
+                      <ReactMarkdown>{message.mainContent || message.content}</ReactMarkdown>
+                    </div>
                   </div>
                 </div>
               ) : message.role === 'assistant' && message.isLawMultisearchResponse ? (
