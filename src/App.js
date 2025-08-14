@@ -815,7 +815,10 @@ function App() {
                     isLawRagResponse: true,
                     isStreaming: true,
                     rawContent: parsed.choices[0].delta.content,
-                    content: parsed.choices[0].delta.content
+                    content: parsed.choices[0].delta.content,
+                    thinkContent: '',
+                    mainContent: '',
+                    searchResults: []
                   };
 
                   setMessages(prev => [...prev, assistantMessage]);
@@ -824,10 +827,17 @@ function App() {
                   setMessages(prev => prev.map(msg => {
                     if (msg.id === tempMessageId) {
                       const newRawContent = (msg.rawContent || '') + parsed.choices[0].delta.content;
+
+                      // 解析内容
+                      const parsedContent = parseContent(newRawContent);
+
                       return {
                         ...msg,
                         rawContent: newRawContent,
-                        content: newRawContent
+                        content: parsedContent.mainContent || newRawContent,
+                        thinkContent: parsedContent.thinkContent,
+                        mainContent: parsedContent.mainContent,
+                        searchResults: parsedContent.searchResults
                       };
                     }
                     return msg;
@@ -840,6 +850,14 @@ function App() {
           }
         }
       }
+
+      // 流式响应完成，更新状态
+      setMessages(prev => prev.map(msg =>
+        msg.id === tempMessageId ? {
+          ...msg,
+          isStreaming: false
+        } : msg
+      ));
 
     } catch (error) {
       console.error('法律RAG API调用失败:', error);
@@ -978,9 +996,79 @@ function App() {
                           <span className="law-rag-icon">🤖</span>
                           <span className="law-rag-label">法律RAG咨询</span>
                         </div>
-                        <div className="law-rag-content" data-streaming={message.isStreaming}>
-                          <ReactMarkdown>{message.content}</ReactMarkdown>
-                        </div>
+
+                        {/* 显示思考过程 */}
+                        {message.thinkContent && isThinkingEnabled && (
+                          <div className="think-content">
+                            <div className="think-header">
+                              <span className="think-icon">🤔</span>
+                              <span className="think-label">思考过程</span>
+                            </div>
+                            <div className="think-text">
+                              <ReactMarkdown>{message.thinkContent}</ReactMarkdown>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 显示搜索结果引用信息 */}
+                        {message.searchResults && message.searchResults.length > 0 && (
+                          <div className="rag-references" style={{ marginBottom: '20px' }}>
+                            <div className="references-header">📚 引用来源 ({message.searchResults.length})</div>
+                            <div className="references-list">
+                              {message.searchResults.map((result, index) => (
+                                <div key={index} id={`citation-${result.id}`} className="reference-item">
+                                  <div className="reference-title">
+                                    <span className="citation-number">[{result.id}]</span>
+                                    {result.title}
+                                  </div>
+                                  <div className="reference-snippet">{result.snippet}</div>
+                                  <div className="reference-meta">
+                                    <span className="reference-source">📄 来源: {result.source}</span>
+                                    {result.score && (
+                                      <span className="reference-score">📊 相关度: {(result.score * 100).toFixed(1)}%</span>
+                                    )}
+                                  </div>
+                                  {result.url && result.url.trim() && (
+                                    <div className="reference-link-container">
+                                      <span className="link-label">🔗 链接：</span>
+                                      <a
+                                        href={result.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="reference-link"
+                                        style={{
+                                          color: '#1976d2',
+                                          textDecoration: 'underline',
+                                          wordBreak: 'break-all'
+                                        }}
+                                      >
+                                        {result.url}
+                                      </a>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 主要内容显示 */}
+                        {message.mainContent && (
+                          <div className="law-rag-content" data-streaming={message.isStreaming}>
+                            <MarkdownWithCitations searchResults={message.searchResults || []}>
+                              {message.mainContent}
+                            </MarkdownWithCitations>
+                          </div>
+                        )}
+
+                        {/* 兼容旧格式 */}
+                        {!message.thinkContent && !message.mainContent && message.content && (
+                          <div className="law-rag-content" data-streaming={message.isStreaming}>
+                            <MarkdownWithCitations searchResults={message.searchResults || []}>
+                              {message.content}
+                            </MarkdownWithCitations>
+                          </div>
+                        )}
                       </div>
                     ) : message.isLawMultisearchResponse ? (
                       <div className="law-multisearch-response">
@@ -1158,6 +1246,8 @@ function App() {
             </div>
           ))}
 
+
+
           {/* 普通AI加载状态提示 - 只在没有任何回复内容时显示 */}
           {isLoading && messages.length > 0 && messages[messages.length - 1].role === 'assistant' &&
            !messages[messages.length - 1].thinkContent && !messages[messages.length - 1].mainContent &&
@@ -1191,6 +1281,46 @@ function App() {
                     <span></span>
                   </div>
                   <span className="loading-text">正在搜索相关信息...</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 法律RAG加载状态提示 */}
+          {isLawRagLoading && (
+            <div className="message assistant">
+              <div className="message-content">
+                <div className="rag-loading-indicator">
+                  <div className="rag-loading-header">
+                    <span className="rag-loading-icon">⚖️</span>
+                    <span className="rag-loading-label">法律RAG咨询中</span>
+                  </div>
+                  <div className="loading-dots">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </div>
+                  <span className="loading-text">正在分析法律问题...</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 法律多源检索加载状态提示 */}
+          {isLawMultisearchLoading && (
+            <div className="message assistant">
+              <div className="message-content">
+                <div className="rag-loading-indicator">
+                  <div className="rag-loading-header">
+                    <span className="rag-loading-icon">🔍</span>
+                    <span className="rag-loading-label">法律多源检索中</span>
+                  </div>
+                  <div className="loading-dots">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </div>
+                  <span className="loading-text">正在检索法律资料...</span>
                 </div>
               </div>
             </div>

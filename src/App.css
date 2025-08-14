@@ -168,7 +168,7 @@ body {
 }
 
 .message-content {
-  max-width: 75%;
+  max-width: 65%;
   padding: 16px 20px;
   border-radius: 20px;
   font-size: 15px;
@@ -183,12 +183,14 @@ body {
   background: #6366f1;
   color: white;
   border-bottom-right-radius: 6px;
+  margin-left: 20%;
 }
 
 .message.assistant .message-content {
   background: #f8fafc;
   color: #1f2937;
   border-bottom-left-radius: 6px;
+  margin-right: 20%;
 }
 
 /* 图表消息使用更大的宽度 */
@@ -1801,6 +1803,7 @@ body {
   max-width: 768px;
   margin: 0 auto;
   width: 100%;
+  background: transparent;
 }
 
 /* 模式选择器 - 极简风格 */
