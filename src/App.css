@@ -1852,7 +1852,7 @@ body {
 .mode-selector {
   display: flex;
   gap: 8px;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
   justify-content: center;
 }
 
@@ -1882,6 +1882,72 @@ body {
   border-color: #6366f1;
 }
 
+/* 聊天功能控制区域 - 简洁设计 */
+.chat-controls {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 20px;
+  justify-content: center;
+  padding: 4px;
+}
+
+.chat-controls .control-btn {
+  padding: 6px 14px;
+  font-size: 13px;
+  border-radius: 16px;
+  min-width: auto;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.chat-controls .control-btn.active {
+  background: #6366f1;
+  color: white;
+  border-color: #6366f1;
+  box-shadow: 0 2px 6px rgba(99, 102, 241, 0.3);
+  position: relative;
+}
+
+.chat-controls .control-btn.active::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 8px;
+  height: 8px;
+  background: #10b981;
+  border-radius: 50%;
+  border: 2px solid white;
+  animation: pulse-indicator 2s infinite;
+}
+
+@keyframes pulse-indicator {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.8;
+  }
+}
+
+/* 聊天控制区域动画 */
+@keyframes slideInControls {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.chat-controls {
+  animation: slideInControls 0.4s ease-out;
+}
+
 /* 输入容器包装器 */
 .input-container-wrapper {
   display: flex;
@@ -1889,20 +1955,7 @@ body {
   gap: 12px;
 }
 
-/* 输入框左侧控制按钮 */
-.input-left-controls {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-  flex-shrink: 0;
-}
 
-.input-left-controls .control-btn {
-  padding: 8px 12px;
-  font-size: 12px;
-  border-radius: 18px;
-  min-width: auto;
-}
 
 /* 输入区域 - 优雅简洁 */
 .input-area {
@@ -2221,7 +2274,7 @@ body {
   }
 
   .mode-selector {
-    margin-bottom: 10px;
+    margin-bottom: 8px;
     padding: 3px;
   }
 
@@ -2230,20 +2283,27 @@ body {
     padding: 6px 12px;
   }
 
+  /* 移动端聊天控制区域 */
+  .chat-controls {
+    margin-bottom: 12px;
+    padding: 6px;
+    gap: 4px;
+  }
+
+  .chat-controls .control-btn {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+
+  /* 平板设备上保持文本 */
+  .chat-controls .control-btn span.btn-text {
+    display: inline;
+  }
+
   .input-container-wrapper {
     flex-direction: column;
     gap: 8px;
     align-items: stretch;
-  }
-
-  .input-left-controls {
-    gap: 4px;
-    justify-content: center;
-  }
-
-  .input-left-controls .control-btn {
-    padding: 6px 12px;
-    font-size: 12px;
   }
 
   .input-area {
@@ -2289,7 +2349,7 @@ body {
   .mode-selector {
     gap: 3px;
     padding: 2px;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
   }
 
   .mode-btn {
@@ -2298,7 +2358,23 @@ body {
     gap: 3px;
   }
 
+  /* 超小屏幕聊天控制区域 */
+  .chat-controls {
+    margin-bottom: 8px;
+    padding: 4px;
+    gap: 3px;
+  }
 
+  .chat-controls .control-btn {
+    padding: 4px 8px;
+    font-size: 11px;
+    min-width: 36px;
+  }
+
+  /* 超小屏幕只显示图标 */
+  .chat-controls .control-btn span.btn-text {
+    display: none;
+  }
 
   .control-btn {
     font-size: 10px;
@@ -2309,16 +2385,6 @@ body {
     flex-direction: column;
     gap: 6px;
     align-items: stretch;
-  }
-
-  .input-left-controls {
-    gap: 3px;
-    justify-content: center;
-  }
-
-  .input-left-controls .control-btn {
-    padding: 4px 8px;
-    font-size: 11px;
   }
 
   .input-area {

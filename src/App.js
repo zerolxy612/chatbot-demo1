@@ -1523,27 +1523,28 @@ function App() {
               </button>
             </div>
 
+            {/* 聊天模式的功能控制按钮 - 放在模式选择器下方 */}
+            {selectedMode === 'chat' && (
+              <div className="chat-controls">
+                <button
+                  className={`control-btn ${isThinkingEnabled ? 'active' : ''}`}
+                  onClick={() => setIsThinkingEnabled(!isThinkingEnabled)}
+                  title={isThinkingEnabled ? "关闭思考模式" : "开启思考模式 - 显示AI的思考过程"}
+                >
+                  🧠<span className="btn-text"> 思考</span>
+                </button>
+                <button
+                  className={`control-btn ${isNetworkEnabled ? 'active' : ''}`}
+                  onClick={() => setIsNetworkEnabled(!isNetworkEnabled)}
+                  title={isNetworkEnabled ? "关闭联网模式" : "开启联网模式 - 获取实时信息"}
+                >
+                  🌐<span className="btn-text"> 联网</span>
+                </button>
+              </div>
+            )}
+
             {/* 输入框和按钮区域 */}
             <div className="input-container-wrapper">
-              {/* 聊天模式的控制按钮放在输入栏左侧 */}
-              {selectedMode === 'chat' && (
-                <div className="input-left-controls">
-                  <button
-                    className={`control-btn ${isThinkingEnabled ? 'active' : ''}`}
-                    onClick={() => setIsThinkingEnabled(!isThinkingEnabled)}
-                    title="思考模式"
-                  >
-                    🧠
-                  </button>
-                  <button
-                    className={`control-btn ${isNetworkEnabled ? 'active' : ''}`}
-                    onClick={() => setIsNetworkEnabled(!isNetworkEnabled)}
-                    title="联网模式"
-                  >
-                    🌐
-                  </button>
-                </div>
-              )}
 
               <div className="input-area">
                 <textarea
