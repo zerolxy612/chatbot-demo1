@@ -1,9 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import './App.css';
-import { callOpenAI } from './api';
-import NewChatInterface from './NewChatInterface';
-import LawChatInterface from './LawChatInterface';
+import { callOpenAI, callStockAPI } from './api';
+import ChartComponent from './ChartComponent';
 
 function App() {
   const [messages, setMessages] = useState([]);
@@ -12,27 +11,10 @@ function App() {
   const [isThinkingEnabled, setIsThinkingEnabled] = useState(true); // 思考模式
   const [isLoading, setIsLoading] = useState(false);
   const [isRagLoading, setIsRagLoading] = useState(false); // RAG接口加载状态
-  const [isNewInterface, setIsNewInterface] = useState(false); // 界面切换状态
-  const [isLawInterface, setIsLawInterface] = useState(false); // Law界面切换状态
+  const [isLawRagLoading, setIsLawRagLoading] = useState(false); // 法律RAG加载状态
+  const [isLawMultisearchLoading, setIsLawMultisearchLoading] = useState(false); // 法律多源检索加载状态
+  const [selectedMode, setSelectedMode] = useState('chat'); // 'chat', 'stock', 'law'
   const messagesEndRef = useRef(null);
-
-  // 界面切换函数
-  const toggleInterface = () => {
-    setIsNewInterface(!isNewInterface);
-    setIsLawInterface(false); // 确保law界面关闭
-  };
-
-  // law界面切换函数
-  const toggleLawInterface = () => {
-    setIsLawInterface(!isLawInterface);
-    setIsNewInterface(false); // 确保fin界面关闭
-  };
-
-  // 返回主界面函数
-  const returnToMainInterface = () => {
-    setIsNewInterface(false);
-    setIsLawInterface(false);
-  };
 
   // 根据开关状态生成模型名称
   const getModelName = () => {
@@ -63,49 +45,13 @@ function App() {
     const searchResultsMatch = content.match(/<search_results>([\s\S]*?)<\/search_results>/);
     if (searchResultsMatch) {
       const searchData = searchResultsMatch[1].trim();
-      console.log('=== SEARCH_RESULTS 前端提取的原始数据 ===');
-      console.log('数据来源: https://oneapi.hkgai.net/v1/chat/completions 响应中的 <search_results> 标签');
-      console.log('原始搜索数据长度:', searchData.length);
-      console.log('原始搜索数据:', searchData);
-
-      // 尝试解析并显示每个原始JSON对象
-      try {
-        const lines = searchData.split('\n').filter(line => line.trim());
-        console.log('分割后的行数:', lines.length);
-        lines.forEach((line, index) => {
-          console.log(`原始行 ${index + 1}:`, line);
-          try {
-            const parsed = JSON.parse(line);
-            console.log(`解析后的对象 ${index + 1}:`, parsed);
-            console.log(`  - doc_index: ${parsed.doc_index}`);
-            console.log(`  - title: ${parsed.title}`);
-            console.log(`  - source: ${parsed.source}`);
-            console.log(`  - url: ${parsed.url}`);
-          } catch (e) {
-            console.log(`行 ${index + 1} 解析失败:`, e.message);
-          }
-        });
-      } catch (e) {
-        console.log('整体解析失败:', e.message);
-      }
 
       // 解码Unicode字符的函数
       const decodeText = (text) => {
         if (!text) return text;
-        const originalText = text;
-        const decodedText = text.replace(/\\u([0-9a-fA-F]{4})/g, (_, code) => {
+        return text.replace(/\\u([0-9a-fA-F]{4})/g, (_, code) => {
           return String.fromCharCode(parseInt(code, 16));
         });
-
-        // 如果有Unicode解码，打印调试信息
-        if (originalText !== decodedText) {
-          console.log('Unicode解码:', {
-            原始: originalText.substring(0, 100) + '...',
-            解码后: decodedText.substring(0, 100) + '...'
-          });
-        }
-
-        return decodedText;
       };
 
       try {
@@ -114,15 +60,6 @@ function App() {
         if (Array.isArray(results)) {
           results.forEach(result => {
             if (result && result.doc_index) {
-              console.log('=== 原始搜索结果数据 ===', {
-                doc_index: result.doc_index,
-                title_原始: result.title,
-                snippet_原始: result.snippet || result.result,
-                source_原始: result.source,
-                url_原始: result.url,
-                score: result.score
-              });
-
               searchResults.push({
                 id: result.doc_index,
                 title: decodeText(result.title) || '搜索结果',
@@ -135,7 +72,7 @@ function App() {
           });
         }
       } catch (e) {
-        console.log('JSON数组解析失败，尝试逐行解析JSON对象');
+        // JSON数组解析失败，尝试逐行解析JSON对象
 
         // 按行分割，每行可能是一个JSON对象
         const lines = searchData.split('\n').filter(line => line.trim());
@@ -160,8 +97,6 @@ function App() {
 
         // 如果还是失败，尝试正则表达式提取
         if (searchResults.length === 0) {
-          console.log('尝试正则表达式提取');
-
           // 使用正则表达式匹配JSON对象
           const jsonMatches = searchData.match(/\{[^}]*"doc_index"[^}]*\}/g);
           if (jsonMatches) {
@@ -185,19 +120,6 @@ function App() {
           }
         }
       }
-
-      console.log('=== 最终解析出的搜索结果 ===');
-      console.log('搜索结果数量:', searchResults.length);
-      searchResults.forEach((result, index) => {
-        console.log(`结果 ${index + 1}:`, {
-          id: result.id,
-          title: result.title,
-          snippet: result.snippet ? result.snippet.substring(0, 100) + '...' : 'N/A',
-          source: result.source,
-          url: result.url,
-          score: result.score
-        });
-      });
     }
 
     return searchResults;
@@ -395,12 +317,7 @@ function App() {
     }
   };
 
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
-  };
+
 
   // 自定义ReactMarkdown组件，处理引用链接
   const MarkdownWithCitations = ({ children, searchResults = [] }) => {
@@ -506,8 +423,7 @@ function App() {
       }
     };
 
-    // 输出请求参数到控制台
-    console.log('RAG API 请求参数:', requestParams);
+
 
     // 创建一个临时的助手消息用于实时更新
     const tempMessageId = Date.now();
@@ -568,7 +484,6 @@ function App() {
               // 记录 TTFT（第一个数据包到达时间）
               if (ttft === null) {
                 ttft = Math.round(performance.now() - startTime);
-                console.log('TTFT:', ttft + 'ms');
               }
 
               // 更新消息内容
@@ -682,73 +597,427 @@ function App() {
     }
   };
 
+  // 股票数据转换为图表数据
+  const convertStockDataToChart = (stockData, timeRange = '1M') => {
+    if (!stockData || !stockData.ranges || !stockData.ranges[timeRange]) {
+      throw new Error('股票数据格式不正确');
+    }
+
+    const rangeData = stockData.ranges[timeRange];
+    const firstPrice = rangeData[0]?.close || 0;
+    const lastPrice = rangeData[rangeData.length - 1]?.close || 0;
+    const priceChange = lastPrice - firstPrice;
+    const priceChangePercent = firstPrice > 0 ? ((priceChange / firstPrice) * 100).toFixed(2) : 0;
+    const isUp = priceChange >= 0;
+
+    return {
+      isChart: true,
+      type: 'line',
+      title: `${stockData.ticker} 股价走势 (${isUp ? '↗' : '↘'} ${priceChangePercent}%)`,
+      xAxis: rangeData.map(item => {
+        const date = new Date(item.date);
+        return `${date.getMonth() + 1}-${date.getDate()}`;
+      }),
+      yAxis: rangeData.map(item => item.close),
+      description: `${stockData.ticker} ${timeRange}时间段股价数据，当前价格: ${stockData.currency} ${lastPrice.toFixed(2)}`,
+      rawData: {
+        ohlc: rangeData.map(item => [item.open, item.high, item.low, item.close]),
+        volume: rangeData.map(item => item.volume),
+        dates: rangeData.map(item => item.date)
+      },
+      stockInfo: {
+        ticker: stockData.ticker,
+        market: stockData.market,
+        currency: stockData.currency,
+        timezone: stockData.timezone,
+        currentPrice: lastPrice,
+        priceChange: priceChange,
+        priceChangePercent: priceChangePercent,
+        isUp: isUp,
+        highestPrice: Math.max(...rangeData.map(item => item.high)),
+        lowestPrice: Math.min(...rangeData.map(item => item.low))
+      }
+    };
+  };
+
+  // 将图表数据转换为ECharts配置
+  const convertToEChartsConfig = (chartData) => {
+    const isStockChart = chartData.stockInfo;
+    const lineColor = isStockChart ?
+      (chartData.stockInfo.isUp ? '#00da3c' : '#ec0000') : '#ff6b6b';
+
+    return {
+      title: {
+        text: chartData.title,
+        left: 'center',
+        textStyle: { fontSize: 16, fontWeight: 'bold' },
+        subtext: isStockChart ?
+          `当前: ${chartData.stockInfo.currency} ${chartData.stockInfo.currentPrice.toFixed(2)} (${chartData.stockInfo.priceChangePercent}%)` :
+          undefined,
+        subtextStyle: {
+          color: isStockChart ? (chartData.stockInfo.isUp ? '#00da3c' : '#ec0000') : undefined,
+          fontSize: 12
+        }
+      },
+      tooltip: {
+        trigger: 'axis',
+        formatter: function(params) {
+          if (params && params.length > 0) {
+            const value = params[0].value;
+            const date = params[0].axisValue;
+            return `${date}<br/>价格: ${chartData.stockInfo?.currency || ''} ${value.toFixed(2)}`;
+          }
+          return '';
+        }
+      },
+      grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+      xAxis: { type: 'category', data: chartData.xAxis },
+      yAxis: {
+        type: 'value',
+        axisLabel: {
+          formatter: isStockChart ?
+            (value) => `${chartData.stockInfo?.currency || ''} ${value.toFixed(2)}` :
+            undefined
+        }
+      },
+      series: [{
+        data: chartData.yAxis,
+        type: 'line',
+        smooth: true,
+        lineStyle: { color: lineColor, width: 2 },
+        itemStyle: { color: lineColor },
+        areaStyle: isStockChart ? {
+          color: {
+            type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+            colorStops: [
+              { offset: 0, color: lineColor + '40' },
+              { offset: 1, color: lineColor + '10' }
+            ]
+          }
+        } : undefined
+      }]
+    };
+  };
+
+  // 处理股票查询
+  const handleStockRequest = async () => {
+    if (!inputValue.trim() || isLoading) return;
+
+    const userMessage = { role: 'user', content: inputValue };
+    const currentInput = inputValue;
+    setMessages(prev => [...prev, userMessage]);
+    setInputValue('');
+    setIsLoading(true);
+
+    try {
+      // 提取股票代码
+      const stockPatterns = [
+        /\b(\d{3,4}\.HK)\b/i,
+        /\b(\d{3,4})\b/
+      ];
+
+      let ticker = null;
+      for (const pattern of stockPatterns) {
+        const match = currentInput.match(pattern);
+        if (match) {
+          ticker = match[1];
+          break;
+        }
+      }
+
+      if (!ticker) {
+        throw new Error('未找到有效的股票代码');
+      }
+
+      const stockData = await callStockAPI(ticker);
+      const chartData = convertStockDataToChart(stockData, '1M');
+
+      let assistantMessage = {
+        role: 'assistant',
+        content: '',
+        isChartRequest: true,
+        chartData: chartData,
+        chartConfig: convertToEChartsConfig(chartData),
+        stockData: stockData
+      };
+
+      setMessages(prev => [...prev, assistantMessage]);
+
+    } catch (error) {
+      console.error('股票查询失败:', error);
+      let errorMessage = `股票查询失败: ${error.message}`;
+
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: errorMessage,
+        isError: true
+      }]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // 法律RAG API调用
+  const callLawRagApi = async () => {
+    if (!inputValue.trim() || isLawRagLoading || isLawMultisearchLoading) return;
+
+    const userMessage = { role: 'user', content: inputValue };
+    const currentInput = inputValue;
+    setMessages(prev => [...prev, userMessage]);
+    setInputValue('');
+    setIsLawRagLoading(true);
+
+    try {
+      const tempMessageId = Date.now().toString();
+      let messageCreated = false;
+
+      const response = await fetch('/api/law/rag/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: "HKGAI-V1-Thinking-RAG-Chat",
+          messages: [{ role: "user", content: currentInput }],
+          stream: true
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+            if (data === '[DONE]') {
+              setIsLawRagLoading(false);
+              break;
+            }
+
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed.choices?.[0]?.delta?.content) {
+                setIsLawRagLoading(false);
+
+                if (!messageCreated) {
+                  const assistantMessage = {
+                    id: tempMessageId,
+                    role: 'assistant',
+                    isLawRagResponse: true,
+                    isStreaming: true,
+                    rawContent: parsed.choices[0].delta.content,
+                    content: parsed.choices[0].delta.content
+                  };
+
+                  setMessages(prev => [...prev, assistantMessage]);
+                  messageCreated = true;
+                } else {
+                  setMessages(prev => prev.map(msg => {
+                    if (msg.id === tempMessageId) {
+                      const newRawContent = (msg.rawContent || '') + parsed.choices[0].delta.content;
+                      return {
+                        ...msg,
+                        rawContent: newRawContent,
+                        content: newRawContent
+                      };
+                    }
+                    return msg;
+                  }));
+                }
+              }
+            } catch (e) {
+              // 忽略JSON解析错误
+            }
+          }
+        }
+      }
+
+    } catch (error) {
+      console.error('法律RAG API调用失败:', error);
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: `❌ 法律咨询服务暂时不可用: ${error.message}`,
+        isError: true
+      }]);
+    } finally {
+      setIsLawRagLoading(false);
+    }
+  };
+
+  // 法律多源检索API调用
+  const callLawMultisearchApi = async () => {
+    if (!inputValue.trim() || isLawRagLoading || isLawMultisearchLoading) return;
+
+    const userMessage = { role: 'user', content: inputValue };
+    const currentInput = inputValue;
+    setMessages(prev => [...prev, userMessage]);
+    setInputValue('');
+    setIsLawMultisearchLoading(true);
+
+    try {
+      const response = await fetch('/api/law/multisearch/multisearch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: currentInput,
+          generate_overview: false,
+          streaming: false,
+          recalls: { hk_ordinance: {}, hk_case: {}, google: {} }
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      let searchResults = [];
+
+      if (data.results?.reference && Array.isArray(data.results.reference)) {
+        searchResults = data.results.reference;
+      } else if (data.reference && Array.isArray(data.reference)) {
+        searchResults = data.reference;
+      }
+
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: searchResults.length > 0 ?
+          `找到 ${searchResults.length} 个相关法律资料` :
+          '未找到相关法律资料',
+        isLawMultisearchResponse: true,
+        searchResults: searchResults,
+        searchQuery: currentInput
+      }]);
+
+    } catch (error) {
+      console.error('法律多源检索API调用失败:', error);
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: `❌ 法律检索服务暂时不可用: ${error.message}`,
+        isError: true
+      }]);
+    } finally {
+      setIsLawMultisearchLoading(false);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (selectedMode === 'chat') {
+        sendMessage();
+      } else if (selectedMode === 'stock') {
+        handleStockRequest();
+      } else if (selectedMode === 'law') {
+        callLawRagApi();
+      }
+    }
+  };
+
   return (
     <div className="App">
-      <div className="interface-container">
-        <div className={`interface-slide ${!isNewInterface && !isLawInterface ? 'active' : 'slide-left'}`}>
-          <div className="chat-container">
-            <div className="chat-header">
-              <h1>测试Demo界面</h1>
-              <div className="model-controls">
-                <div className="interface-buttons">
-                  <button
-                    className="interface-toggle"
-                    onClick={toggleInterface}
-                    title="切换到Fin测试界面"
-                  >
-                    <span className="toggle-icon">🔄</span>
-                    Fin测试界面
-                  </button>
-                  <button
-                    className="interface-toggle law-toggle"
-                    onClick={toggleLawInterface}
-                    title="切换到law测试界面"
-                  >
-                    <span className="toggle-icon">⚖️</span>
-                    law测试界面
-                  </button>
-                </div>
-                <div className="model-name">
-                  <span className="model-label">HKGAI-V1</span>
-                  <span className="model-status">
-                    {isThinkingEnabled && "🧠"} {isNetworkEnabled && "🌐"}
-                  </span>
-                </div>
-                <div className="control-buttons">
-                  <button
-                    className={`control-btn ${isThinkingEnabled ? 'active' : ''}`}
-                    onClick={() => setIsThinkingEnabled(!isThinkingEnabled)}
-                    title="思考模式"
-                  >
-                    🧠 思考
-                  </button>
-                  <button
-                    className={`control-btn ${isNetworkEnabled ? 'active' : ''}`}
-                    onClick={() => setIsNetworkEnabled(!isNetworkEnabled)}
-                    title="联网模式"
-                  >
-                    🌐 联网
-                  </button>
-                </div>
-              </div>
-            </div>
+      <div className="chat-container">
+        {/* 顶部导航栏 */}
+        <div className="chat-header">
+          <div className="header-left">
+            <h1 className="header-title">AI助手</h1>
+          </div>
+          <div className="header-right">
+            <span className="model-status">
+              {selectedMode === 'chat' && (
+                <>
+                  {isThinkingEnabled && "🧠"} {isNetworkEnabled && "🌐"}
+                </>
+              )}
+            </span>
+          </div>
+        </div>
 
         <div className="messages-container">
           {messages.map((message, index) => (
-            <div key={index} className={`message ${message.role}`}>
+            <div key={index} className={`message ${message.role} ${message.isChartRequest ? 'chart-message-container' : ''}`}>
               <div className="message-content">
                 {message.role === 'assistant' ? (
                   <div>
-                    {/* OneAPI Loading状态显示 */}
-                    {message.isLoading ? (
-                      <div className="rag-response">
-                        <div className="rag-header">
-                          <span className="rag-icon">🤖</span>
-                          <span className="rag-label">HKGAI-V1</span>
+                    {/* 图表消息特殊处理 */}
+                    {message.isChartRequest ? (
+                      <div className="chart-message">
+                        <div className="chart-header">
+                          <span className="chart-icon">📊</span>
+                          <span className="chart-label">股票数据可视化</span>
                         </div>
-                        <div className="rag-content" data-streaming={message.isStreaming}>
+
+                        {/* 图表渲染 */}
+                        {message.chartConfig && (
+                          <ChartComponent
+                            config={message.chartConfig}
+                            description={message.chartData?.description}
+                          />
+                        )}
+
+                        {/* 图表错误处理 */}
+                        {message.chartError && (
+                          <div className="chart-error">
+                            <span className="chart-error-icon">⚠️</span>
+                            {message.chartError}
+                          </div>
+                        )}
+                      </div>
+                    ) : message.isLawRagResponse ? (
+                      <div className="law-rag-response">
+                        <div className="law-rag-header">
+                          <span className="law-rag-icon">🤖</span>
+                          <span className="law-rag-label">法律RAG咨询</span>
+                        </div>
+                        <div className="law-rag-content" data-streaming={message.isStreaming}>
                           <ReactMarkdown>{message.content}</ReactMarkdown>
                         </div>
+                      </div>
+                    ) : message.isLawMultisearchResponse ? (
+                      <div className="law-multisearch-response">
+                        <div className="law-multisearch-header">
+                          <span className="law-multisearch-icon">🔍</span>
+                          <span className="law-multisearch-label">法律检索结果</span>
+                        </div>
+                        <div className="law-multisearch-content">
+                          <ReactMarkdown>{message.content}</ReactMarkdown>
+                        </div>
+
+                        {/* 显示检索结果 */}
+                        {message.searchResults && message.searchResults.length > 0 && (
+                          <div className="law-search-results">
+                            <div className="search-results-header">📚 检索结果 ({message.searchResults.length})</div>
+                            <div className="search-results-list">
+                              {message.searchResults.map((result, resultIndex) => (
+                                <div key={resultIndex} className="search-result-item">
+                                  <div className="result-title">{result.title || `结果 ${resultIndex + 1}`}</div>
+                                  <div className="result-snippet">{result.snippet || result.content}</div>
+                                  <div className="result-meta">
+                                    {result.source && <span className="result-source">📄 来源: {result.source}</span>}
+                                    {result.score && <span className="result-score">📊 相关度: {(result.score * 100).toFixed(1)}%</span>}
+                                  </div>
+                                  {(result.link || result.url) && (
+                                    <div className="result-link-container">
+                                      <span className="link-label">🔗 链接：</span>
+                                      <a href={result.link || result.url} target="_blank" rel="noopener noreferrer" className="result-link">
+                                        {result.link || result.url}
+                                      </a>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ) : message.isRagResponse ? (
                       <div className="rag-response">
@@ -824,46 +1093,39 @@ function App() {
                           <div className="rag-references" style={{ marginBottom: '20px' }}>
                             <div className="references-header">📚 引用来源 ({message.searchResults.length})</div>
                             <div className="references-list">
-                              {message.searchResults.map((result, index) => {
-                                console.log('显示搜索结果:', result); // 调试信息
-                                return (
-                                  <div key={index} id={`citation-${result.id}`} className="reference-item">
-                                    <div className="reference-title">
-                                      <span className="citation-number">[{result.id}]</span>
-                                      {result.title}
-                                    </div>
-                                    <div className="reference-snippet">{result.snippet}</div>
-                                    <div className="reference-meta">
-                                      <span className="reference-source">📄 来源: {result.source}</span>
-                                      {result.score && (
-                                        <span className="reference-score">📊 相关度: {(result.score * 100).toFixed(1)}%</span>
-                                      )}
-                                    </div>
-                                    {result.url && result.url.trim() && (
-                                      <div className="reference-link-container">
-                                        <span className="link-label">🔗 链接：</span>
-                                        <a
-                                          href={result.url}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="reference-link"
-                                          style={{
-                                            color: '#1976d2',
-                                            textDecoration: 'underline',
-                                            wordBreak: 'break-all'
-                                          }}
-                                        >
-                                          {result.url}
-                                        </a>
-                                      </div>
-                                    )}
-                                    {/* 调试信息 */}
-                                    <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
-                                      调试: URL = "{result.url}", 长度 = {result.url ? result.url.length : 0}
-                                    </div>
+                              {message.searchResults.map((result, index) => (
+                                <div key={index} id={`citation-${result.id}`} className="reference-item">
+                                  <div className="reference-title">
+                                    <span className="citation-number">[{result.id}]</span>
+                                    {result.title}
                                   </div>
-                                );
-                              })}
+                                  <div className="reference-snippet">{result.snippet}</div>
+                                  <div className="reference-meta">
+                                    <span className="reference-source">📄 来源: {result.source}</span>
+                                    {result.score && (
+                                      <span className="reference-score">📊 相关度: {(result.score * 100).toFixed(1)}%</span>
+                                    )}
+                                  </div>
+                                  {result.url && result.url.trim() && (
+                                    <div className="reference-link-container">
+                                      <span className="link-label">🔗 链接：</span>
+                                      <a
+                                        href={result.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="reference-link"
+                                        style={{
+                                          color: '#1976d2',
+                                          textDecoration: 'underline',
+                                          wordBreak: 'break-all'
+                                        }}
+                                      >
+                                        {result.url}
+                                      </a>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
                             </div>
                           </div>
                         )}
@@ -958,16 +1220,119 @@ function App() {
               {isRagLoading ? '查询中...' : 'multisearch'}
             </button>
           </div>
+        </div>
+
+        {/* 底部输入区域 */}
+        <div className="unified-input-container">
+          <div className="input-wrapper">
+            {/* 模式选择器 */}
+            <div className="mode-selector">
+              <button
+                className={`mode-btn ${selectedMode === 'chat' ? 'active' : ''}`}
+                onClick={() => setSelectedMode('chat')}
+              >
+                💬 聊天
+              </button>
+              <button
+                className={`mode-btn ${selectedMode === 'stock' ? 'active' : ''}`}
+                onClick={() => setSelectedMode('stock')}
+              >
+                📈 股票
+              </button>
+              <button
+                className={`mode-btn ${selectedMode === 'law' ? 'active' : ''}`}
+                onClick={() => setSelectedMode('law')}
+              >
+                ⚖️ 法律
+              </button>
+            </div>
+
+            {/* 模型控制选项 */}
+            {selectedMode === 'chat' && (
+              <div className="model-controls">
+                <button
+                  className={`control-btn ${isThinkingEnabled ? 'active' : ''}`}
+                  onClick={() => setIsThinkingEnabled(!isThinkingEnabled)}
+                  title="思考模式"
+                >
+                  🧠 思考
+                </button>
+                <button
+                  className={`control-btn ${isNetworkEnabled ? 'active' : ''}`}
+                  onClick={() => setIsNetworkEnabled(!isNetworkEnabled)}
+                  title="联网模式"
+                >
+                  🌐 联网
+                </button>
+              </div>
+            )}
+
+            {/* 输入框和按钮 */}
+            <div className="input-area">
+              <textarea
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={
+                  selectedMode === 'chat' ? "有什么可以帮您的吗？" :
+                  selectedMode === 'stock' ? "输入股票代码查看走势：700, 0700, 700.HK..." :
+                  "请描述您的法律问题"
+                }
+                disabled={isLoading || isRagLoading || isLawRagLoading || isLawMultisearchLoading}
+              />
+
+              {/* 发送按钮组 */}
+              <div className="button-group">
+                {selectedMode === 'chat' && (
+                  <>
+                    <button
+                      onClick={sendMessage}
+                      disabled={isLoading || isRagLoading || !inputValue.trim()}
+                      className="send-btn primary"
+                    >
+                      {isLoading ? '发送中...' : 'RAG'}
+                    </button>
+                    <button
+                      onClick={callRagApi}
+                      disabled={isLoading || isRagLoading || !inputValue.trim()}
+                      className="send-btn secondary"
+                    >
+                      {isRagLoading ? '查询中...' : 'Multisearch'}
+                    </button>
+                  </>
+                )}
+
+                {selectedMode === 'stock' && (
+                  <button
+                    onClick={handleStockRequest}
+                    disabled={isLoading || !inputValue.trim()}
+                    className="send-btn primary"
+                  >
+                    {isLoading ? '查询中...' : '查询'}
+                  </button>
+                )}
+
+                {selectedMode === 'law' && (
+                  <>
+                    <button
+                      onClick={callLawRagApi}
+                      disabled={isLawRagLoading || isLawMultisearchLoading || !inputValue.trim()}
+                      className="send-btn primary"
+                    >
+                      {isLawRagLoading ? '咨询中...' : 'RAG'}
+                    </button>
+                    <button
+                      onClick={callLawMultisearchApi}
+                      disabled={isLawRagLoading || isLawMultisearchLoading || !inputValue.trim()}
+                      className="send-btn secondary"
+                    >
+                      {isLawMultisearchLoading ? '检索中...' : 'Multisearch'}
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-
-        <div className={`interface-slide ${isNewInterface && !isLawInterface ? 'active' : 'slide-right'}`}>
-          <NewChatInterface onToggleInterface={returnToMainInterface} />
-        </div>
-
-        <div className={`interface-slide ${isLawInterface ? 'active' : 'slide-right'}`}>
-          <LawChatInterface onToggleInterface={returnToMainInterface} />
         </div>
       </div>
     </div>

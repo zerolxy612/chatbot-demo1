@@ -40,8 +40,6 @@ function NewChatInterface({ onToggleInterface }) {
 
   // 股票数据转换为图表数据
   const convertStockDataToChart = (stockData, timeRange = '1M') => {
-    console.log('转换股票数据为图表数据:', stockData);
-
     if (!stockData || !stockData.ranges || !stockData.ranges[timeRange]) {
       throw new Error('股票数据格式不正确');
     }
@@ -369,7 +367,6 @@ function NewChatInterface({ onToggleInterface }) {
       const match = userInput.match(pattern);
       if (match) {
         const ticker = match[1];
-        console.log('检测到股票代码:', ticker);
         return { type: 'stock', ticker: ticker };
       }
     }
@@ -385,11 +382,8 @@ function NewChatInterface({ onToggleInterface }) {
 
   // 处理股票查询
   const handleStockRequest = async (ticker) => {
-    console.log('处理股票查询，股票代码:', ticker);
-
     try {
       // 调用真实的股票API
-      console.log('🚀 调用真实股票API获取数据');
       const stockData = await callStockAPI(ticker);
 
       // 转换为图表数据，默认使用1M数据展示更丰富的走势
@@ -448,7 +442,6 @@ function NewChatInterface({ onToggleInterface }) {
     try {
       // 智能路由判断请求类型
       const route = routeRequest(currentInput);
-      console.log('路由判断结果:', route);
 
       if (route.type === 'stock') {
         // 处理股票查询
