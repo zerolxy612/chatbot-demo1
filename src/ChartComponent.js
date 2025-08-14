@@ -1,9 +1,10 @@
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import * as echarts from 'echarts';
 
-const ChartComponent = ({ config, description }) => {
+const ChartComponent = ({ config, description, chartData }) => {
   const chartRef = useRef(null);
   const chartInstance = useRef(null);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
 
   useEffect(() => {
     if (chartRef.current && config) {
@@ -11,14 +12,28 @@ const ChartComponent = ({ config, description }) => {
       if (chartInstance.current) {
         chartInstance.current.dispose();
       }
-      
+
       chartInstance.current = echarts.init(chartRef.current);
       chartInstance.current.setOption(config);
 
       // 响应式处理
       const handleResize = () => {
+        const newIsMobile = window.innerWidth <= 768;
+
         if (chartInstance.current) {
           chartInstance.current.resize();
+
+          // 如果屏幕尺寸类型发生变化，重新生成配置
+          if (newIsMobile !== isMobile) {
+            setIsMobile(newIsMobile);
+
+            // 触发父组件重新生成配置
+            if (chartData && window.convertToEChartsConfig) {
+              const newChartData = { ...chartData, isMobile: newIsMobile };
+              const newConfig = window.convertToEChartsConfig(newChartData);
+              chartInstance.current.setOption(newConfig, true);
+            }
+          }
         }
       };
 
@@ -31,7 +46,7 @@ const ChartComponent = ({ config, description }) => {
         }
       };
     }
-  }, [config]);
+  }, [config, isMobile, chartData]);
 
   return (
     <div className="chart-container">
@@ -40,8 +55,8 @@ const ChartComponent = ({ config, description }) => {
         className="chart-canvas"
         style={{
           width: '100%',
-          height: '450px',
-          minHeight: '350px'
+          height: isMobile ? '300px' : '450px',
+          minHeight: isMobile ? '250px' : '350px'
         }}
       />
       {description && (

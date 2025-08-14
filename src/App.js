@@ -642,18 +642,52 @@ function App() {
     }
   };
 
+  // 智能数据采样函数 - 移动端优化
+  const sampleDataForMobile = (data, maxPoints = 15) => {
+    if (data.length <= maxPoints) return data;
+
+    const step = Math.floor(data.length / maxPoints);
+    const sampledData = [];
+
+    // 始终包含第一个点
+    sampledData.push(data[0]);
+
+    // 采样中间的点
+    for (let i = step; i < data.length - step; i += step) {
+      sampledData.push(data[i]);
+    }
+
+    // 始终包含最后一个点
+    if (data.length > 1) {
+      sampledData.push(data[data.length - 1]);
+    }
+
+    return sampledData;
+  };
+
+  // 检测是否为移动设备
+  const isMobile = () => {
+    return window.innerWidth <= 768;
+  };
+
   // 股票数据转换为图表数据
   const convertStockDataToChart = (stockData, timeRange = '1M') => {
     if (!stockData || !stockData.ranges || !stockData.ranges[timeRange]) {
       throw new Error('股票数据格式不正确');
     }
 
-    const rangeData = stockData.ranges[timeRange];
+    let rangeData = stockData.ranges[timeRange];
     const firstPrice = rangeData[0]?.close || 0;
     const lastPrice = rangeData[rangeData.length - 1]?.close || 0;
     const priceChange = lastPrice - firstPrice;
     const priceChangePercent = firstPrice > 0 ? ((priceChange / firstPrice) * 100).toFixed(2) : 0;
     const isUp = priceChange >= 0;
+
+    // 移动端数据采样
+    const mobile = isMobile();
+    if (mobile && rangeData.length > 15) {
+      rangeData = sampleDataForMobile(rangeData, 15);
+    }
 
     return {
       isChart: true,
@@ -661,10 +695,11 @@ function App() {
       title: `${stockData.ticker} 股价走势 (${isUp ? '↗' : '↘'} ${priceChangePercent}%)`,
       xAxis: rangeData.map(item => {
         const date = new Date(item.date);
-        return `${date.getMonth() + 1}-${date.getDate()}`;
+        return mobile ? `${date.getMonth() + 1}/${date.getDate()}` : `${date.getMonth() + 1}-${date.getDate()}`;
       }),
       yAxis: rangeData.map(item => item.close),
       description: `${stockData.ticker} ${timeRange}时间段股价数据，当前价格: ${stockData.currency} ${lastPrice.toFixed(2)}`,
+      isMobile: mobile,
       rawData: {
         ohlc: rangeData.map(item => [item.open, item.high, item.low, item.close]),
         volume: rangeData.map(item => item.volume),
@@ -690,18 +725,22 @@ function App() {
     const isStockChart = chartData.stockInfo;
     const lineColor = isStockChart ?
       (chartData.stockInfo.isUp ? '#00da3c' : '#ec0000') : '#ff6b6b';
+    const mobile = chartData.isMobile;
 
     return {
       title: {
         text: chartData.title,
         left: 'center',
-        textStyle: { fontSize: 16, fontWeight: 'bold' },
+        textStyle: {
+          fontSize: mobile ? 14 : 16,
+          fontWeight: 'bold'
+        },
         subtext: isStockChart ?
           `当前: ${chartData.stockInfo.currency} ${chartData.stockInfo.currentPrice.toFixed(2)} (${chartData.stockInfo.priceChangePercent}%)` :
           undefined,
         subtextStyle: {
           color: isStockChart ? (chartData.stockInfo.isUp ? '#00da3c' : '#ec0000') : undefined,
-          fontSize: 12
+          fontSize: mobile ? 10 : 12
         }
       },
       tooltip: {
@@ -713,15 +752,35 @@ function App() {
             return `${date}<br/>价格: ${chartData.stockInfo?.currency || ''} ${value.toFixed(2)}`;
           }
           return '';
+        },
+        textStyle: {
+          fontSize: mobile ? 12 : 14
         }
       },
-      grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
-      xAxis: { type: 'category', data: chartData.xAxis },
+      grid: {
+        left: mobile ? '8%' : '3%',
+        right: mobile ? '8%' : '4%',
+        bottom: mobile ? '8%' : '3%',
+        top: mobile ? '20%' : '15%',
+        containLabel: true
+      },
+      xAxis: {
+        type: 'category',
+        data: chartData.xAxis,
+        axisLabel: {
+          fontSize: mobile ? 10 : 12,
+          rotate: mobile ? 45 : 0,
+          interval: mobile ? 'auto' : 0
+        }
+      },
       yAxis: {
         type: 'value',
         axisLabel: {
+          fontSize: mobile ? 10 : 12,
           formatter: isStockChart ?
-            (value) => `${chartData.stockInfo?.currency || ''} ${value.toFixed(2)}` :
+            (value) => mobile ?
+              `${value.toFixed(0)}` :
+              `${chartData.stockInfo?.currency || ''} ${value.toFixed(2)}` :
             undefined
         }
       },
@@ -729,17 +788,34 @@ function App() {
         data: chartData.yAxis,
         type: 'line',
         smooth: true,
-        lineStyle: { color: lineColor, width: 2 },
-        itemStyle: { color: lineColor },
+        lineStyle: {
+          color: lineColor,
+          width: mobile ? 3 : 2
+        },
+        itemStyle: {
+          color: lineColor,
+          borderWidth: mobile ? 2 : 1,
+          borderColor: '#fff'
+        },
+        symbol: mobile ? 'circle' : 'none',
+        symbolSize: mobile ? 6 : 4,
         areaStyle: isStockChart ? {
           color: {
             type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
             colorStops: [
-              { offset: 0, color: lineColor + '40' },
+              { offset: 0, color: lineColor + (mobile ? '30' : '40') },
               { offset: 1, color: lineColor + '10' }
             ]
           }
-        } : undefined
+        } : undefined,
+        emphasis: {
+          focus: 'series',
+          itemStyle: {
+            borderWidth: mobile ? 3 : 2,
+            shadowBlur: mobile ? 8 : 5,
+            shadowColor: lineColor
+          }
+        }
       }]
     };
   };
@@ -1039,7 +1115,38 @@ function App() {
                           <ChartComponent
                             config={message.chartConfig}
                             description={message.chartData?.description}
+                            chartData={message.chartData}
                           />
+                        )}
+
+                        {/* 移动端股票数据摘要 */}
+                        {message.chartData?.stockInfo && window.innerWidth <= 768 && (
+                          <div className="mobile-stock-summary">
+                            <div className="stock-summary-row">
+                              <span className="summary-label">股票代码:</span>
+                              <span className="summary-value">{message.chartData.stockInfo.ticker}</span>
+                            </div>
+                            <div className="stock-summary-row">
+                              <span className="summary-label">当前价格:</span>
+                              <span className={`summary-value ${message.chartData.stockInfo.isUp ? 'price-up' : 'price-down'}`}>
+                                {message.chartData.stockInfo.currency} {message.chartData.stockInfo.currentPrice.toFixed(2)}
+                              </span>
+                            </div>
+                            <div className="stock-summary-row">
+                              <span className="summary-label">涨跌幅:</span>
+                              <span className={`summary-value ${message.chartData.stockInfo.isUp ? 'price-up' : 'price-down'}`}>
+                                {message.chartData.stockInfo.isUp ? '↗' : '↘'} {message.chartData.stockInfo.priceChangePercent}%
+                              </span>
+                            </div>
+                            <div className="stock-summary-row">
+                              <span className="summary-label">最高价:</span>
+                              <span className="summary-value">{message.chartData.stockInfo.currency} {message.chartData.stockInfo.highestPrice.toFixed(2)}</span>
+                            </div>
+                            <div className="stock-summary-row">
+                              <span className="summary-label">最低价:</span>
+                              <span className="summary-value">{message.chartData.stockInfo.currency} {message.chartData.stockInfo.lowestPrice.toFixed(2)}</span>
+                            </div>
+                          </div>
                         )}
 
                         {/* 图表错误处理 */}
