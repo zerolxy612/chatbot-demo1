@@ -27,7 +27,11 @@ app.post('/api/chat', async (req, res) => {
           { role: "user", content: message }
         ],
         stream: true,
-        max_tokens: 10240
+        max_tokens: 10240,
+        // 尝试不同的搜索启用方式
+        web_search: true,
+        search: true,
+        enable_search: true
       })
     });
 

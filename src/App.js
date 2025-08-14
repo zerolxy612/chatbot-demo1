@@ -1356,39 +1356,40 @@ function App() {
               </button>
             </div>
 
-            {/* 模型控制选项 */}
-            {selectedMode === 'chat' && (
-              <div className="model-controls">
-                <button
-                  className={`control-btn ${isThinkingEnabled ? 'active' : ''}`}
-                  onClick={() => setIsThinkingEnabled(!isThinkingEnabled)}
-                  title="思考模式"
-                >
-                  🧠 思考
-                </button>
-                <button
-                  className={`control-btn ${isNetworkEnabled ? 'active' : ''}`}
-                  onClick={() => setIsNetworkEnabled(!isNetworkEnabled)}
-                  title="联网模式"
-                >
-                  🌐 联网
-                </button>
-              </div>
-            )}
+            {/* 输入框和按钮区域 */}
+            <div className="input-container-wrapper">
+              {/* 聊天模式的控制按钮放在输入栏左侧 */}
+              {selectedMode === 'chat' && (
+                <div className="input-left-controls">
+                  <button
+                    className={`control-btn ${isThinkingEnabled ? 'active' : ''}`}
+                    onClick={() => setIsThinkingEnabled(!isThinkingEnabled)}
+                    title="思考模式"
+                  >
+                    🧠
+                  </button>
+                  <button
+                    className={`control-btn ${isNetworkEnabled ? 'active' : ''}`}
+                    onClick={() => setIsNetworkEnabled(!isNetworkEnabled)}
+                    title="联网模式"
+                  >
+                    🌐
+                  </button>
+                </div>
+              )}
 
-            {/* 输入框和按钮 */}
-            <div className="input-area">
-              <textarea
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder={
-                  selectedMode === 'chat' ? "有什么可以帮您的吗？" :
-                  selectedMode === 'stock' ? "输入股票代码查看走势：700, 0700, 700.HK..." :
-                  "请描述您的法律问题"
-                }
-                disabled={isLoading || isRagLoading || isLawRagLoading || isLawMultisearchLoading}
-              />
+              <div className="input-area">
+                <textarea
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder={
+                    selectedMode === 'chat' ? "有什么可以帮您的吗？" :
+                    selectedMode === 'stock' ? "输入股票代码查看走势：700, 0700, 700.HK..." :
+                    "请描述您的法律问题"
+                  }
+                  disabled={isLoading || isRagLoading || isLawRagLoading || isLawMultisearchLoading}
+                />
 
               {/* 发送按钮组 */}
               <div className="button-group">
@@ -1440,6 +1441,7 @@ function App() {
                   </>
                 )}
               </div>
+            </div>
             </div>
           </div>
         </div>

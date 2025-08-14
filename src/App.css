@@ -18,14 +18,14 @@ body {
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background: #ffffff;
+  background: transparent;
 }
 
 .chat-container {
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background: #ffffff;
+  background: transparent;
 }
 
 /* 顶部导航栏 - 极简设计 */
@@ -70,11 +70,7 @@ body {
   margin: 0;
 }
 
-.model-controls {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
+
 
 .interface-buttons {
   display: flex;
@@ -143,7 +139,7 @@ body {
   padding: 0 32px 140px;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 48px; /* 增加电脑端消息间距 */
   background: transparent;
   width: 100%;
 }
@@ -1067,11 +1063,7 @@ body {
     gap: 10px;
   }
 
-  .model-controls {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
-  }
+
 
   .interface-buttons {
     flex-wrap: wrap;
@@ -1794,9 +1786,6 @@ body {
 .unified-input-container {
   background: transparent;
   padding: 24px 32px 32px;
-  position: sticky;
-  bottom: 0;
-  z-index: 100;
 }
 
 .input-wrapper {
@@ -1816,9 +1805,9 @@ body {
 
 .mode-btn {
   padding: 8px 20px;
-  border: none;
+  border: 1px solid #e5e7eb;
   border-radius: 24px;
-  background: #f8fafc;
+  background: transparent;
   color: #64748b;
   font-size: 14px;
   font-weight: 500;
@@ -1830,13 +1819,36 @@ body {
 }
 
 .mode-btn:hover:not(.active) {
-  background: #f1f5f9;
+  border-color: #d1d5db;
   color: #475569;
 }
 
 .mode-btn.active {
   background: #6366f1;
   color: white;
+  border-color: #6366f1;
+}
+
+/* 输入容器包装器 */
+.input-container-wrapper {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+/* 输入框左侧控制按钮 */
+.input-left-controls {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.input-left-controls .control-btn {
+  padding: 8px 12px;
+  font-size: 12px;
+  border-radius: 18px;
+  min-width: auto;
 }
 
 /* 输入区域 - 优雅简洁 */
@@ -1845,18 +1857,16 @@ body {
   display: flex;
   align-items: flex-end;
   gap: 12px;
-  background: #f8fafc;
-  border: 2px solid transparent;
+  background: transparent;
+  border: 1px solid #e5e7eb;
   border-radius: 28px;
   padding: 14px 20px;
   transition: all 0.3s ease;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+  flex: 1;
 }
 
 .input-area:focus-within {
   border-color: #6366f1;
-  background: #ffffff;
-  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.1);
 }
 
 .input-area textarea {
@@ -1929,19 +1939,13 @@ body {
   box-shadow: none;
 }
 
-/* 模型控制选项 - 轻量设计 */
-.model-controls {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 16px;
-  justify-content: center;
-}
+
 
 .control-btn {
   padding: 6px 14px;
-  border: none;
+  border: 1px solid #e5e7eb;
   border-radius: 18px;
-  background: #f1f5f9;
+  background: transparent;
   color: #64748b;
   font-size: 12px;
   font-weight: 500;
@@ -1953,13 +1957,14 @@ body {
 }
 
 .control-btn:hover:not(.active) {
-  background: #e2e8f0;
+  border-color: #d1d5db;
   color: #475569;
 }
 
 .control-btn.active {
   background: #6366f1;
   color: white;
+  border-color: #6366f1;
 }
 
 /* 图表消息样式 */
@@ -2105,6 +2110,13 @@ body {
 }
 
 /* 响应式设计 */
+/* 平板设备 (中等屏幕) */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .messages-container {
+    gap: 32px; /* 平板使用中等间距 */
+  }
+}
+
 @media (max-width: 768px) {
   .chat-header {
     padding: 16px 20px;
@@ -2144,6 +2156,22 @@ body {
     padding: 6px 12px;
   }
 
+  .input-container-wrapper {
+    flex-direction: column;
+    gap: 8px;
+    align-items: stretch;
+  }
+
+  .input-left-controls {
+    gap: 4px;
+    justify-content: center;
+  }
+
+  .input-left-controls .control-btn {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+
   .input-area {
     padding: 8px 12px;
     border-radius: 16px;
@@ -2171,6 +2199,7 @@ body {
 
   .messages-container {
     padding: 16px 12px 120px;
+    gap: 12px; /* 小屏幕使用更紧凑的间距 */
   }
 
   .message-content {
@@ -2195,14 +2224,27 @@ body {
     gap: 3px;
   }
 
-  .model-controls {
-    gap: 4px;
-    margin-bottom: 8px;
-  }
+
 
   .control-btn {
     font-size: 10px;
     padding: 3px 8px;
+  }
+
+  .input-container-wrapper {
+    flex-direction: column;
+    gap: 6px;
+    align-items: stretch;
+  }
+
+  .input-left-controls {
+    gap: 3px;
+    justify-content: center;
+  }
+
+  .input-left-controls .control-btn {
+    padding: 4px 8px;
+    font-size: 11px;
   }
 
   .input-area {
