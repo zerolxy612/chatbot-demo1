@@ -17,6 +17,26 @@ function App() {
   const messagesEndRef = useRef(null);
   const abortControllerRef = useRef(null); // 用于控制流式输出的中止
 
+  // 检查是否有正在进行的法律RAG流式响应
+  const hasActiveLawRagStreaming = () => {
+    return messages.some(msg =>
+      msg.role === 'assistant' &&
+      msg.isLawRagResponse &&
+      msg.isStreaming === true
+    );
+  };
+
+  // 检查是否有正在进行的普通聊天流式响应
+  const hasActiveChatStreaming = () => {
+    return messages.some(msg =>
+      msg.role === 'assistant' &&
+      !msg.isLawRagResponse &&
+      !msg.isRagResponse &&
+      !msg.isLawMultisearchResponse &&
+      msg.isStreaming === true
+    );
+  };
+
   // 根据开关状态生成模型名称
   const getModelName = () => {
     if (isThinkingEnabled && isNetworkEnabled) {
@@ -48,14 +68,22 @@ function App() {
       setIsLawRagLoading(false);
       setIsLawMultisearchLoading(false);
 
-      // 更新最后一条消息的流式状态
-      setMessages(prev => prev.map((msg, index) => {
-        if (index === prev.length - 1 && msg.role === 'assistant' && (msg.isStreaming || isLawRagLoading || isLawMultisearchLoading)) {
+      // 更新所有正在流式输出的消息状态
+      setMessages(prev => prev.map((msg) => {
+        if (msg.role === 'assistant' && msg.isStreaming) {
+          // 根据消息类型提供不同的中断提示
+          let interruptMessage = '回答被中断';
+          if (msg.isLawRagResponse) {
+            interruptMessage = '法律咨询回答被用户中断';
+          } else if (msg.isRagResponse) {
+            interruptMessage = 'RAG查询被用户中断';
+          }
+
           return {
             ...msg,
             isStreaming: false,
-            content: msg.content || msg.mainContent || '回答被中断',
-            mainContent: msg.mainContent || msg.content || '回答被中断'
+            content: msg.content || msg.mainContent || interruptMessage,
+            mainContent: msg.mainContent || msg.content || interruptMessage
           };
         }
         return msg;
@@ -936,6 +964,7 @@ function App() {
             try {
               const parsed = JSON.parse(data);
               if (parsed.choices?.[0]?.delta?.content) {
+                // 一旦开始接收内容，立即清除加载状态
                 setIsLawRagLoading(false);
 
                 if (!messageCreated) {
@@ -991,11 +1020,19 @@ function App() {
 
     } catch (error) {
       console.error('法律RAG API调用失败:', error);
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: `❌ 法律咨询服务暂时不可用: ${error.message}`,
-        isError: true
-      }]);
+
+      // 检查是否是用户主动中断
+      if (error.name === 'AbortError' || error.message.includes('aborted')) {
+        // 用户主动停止，不显示错误消息，让stopStreaming函数处理
+        console.log('法律RAG流式响应被用户中断');
+      } else {
+        // 真正的错误才显示错误消息
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: `❌ 法律咨询服务暂时不可用: ${error.message}`,
+          isError: true
+        }]);
+      }
     } finally {
       setIsLawRagLoading(false);
       abortControllerRef.current = null; // 清理 AbortController
@@ -1453,8 +1490,8 @@ function App() {
             </div>
           )}
 
-          {/* 法律RAG加载状态提示 */}
-          {isLawRagLoading && (
+          {/* 法律RAG加载状态提示 - 只在没有活跃流式响应时显示 */}
+          {isLawRagLoading && !hasActiveLawRagStreaming() && (
             <div className="message assistant">
               <div className="message-content">
                 <div className="rag-loading-indicator">
@@ -1556,14 +1593,14 @@ function App() {
                     selectedMode === 'stock' ? "输入股票代码查看走势：700, 0700, 700.HK..." :
                     "请描述您的法律问题"
                   }
-                  disabled={isLoading || isRagLoading || isLawRagLoading || isLawMultisearchLoading}
+                  disabled={isLoading || isRagLoading || isLawRagLoading || isLawMultisearchLoading || hasActiveLawRagStreaming() || hasActiveChatStreaming()}
                 />
 
               {/* 发送按钮组 */}
               <div className="button-group">
                 {selectedMode === 'chat' && (
                   <>
-                    {(isLoading || isRagLoading) ? (
+                    {(isLoading || isRagLoading || hasActiveChatStreaming()) ? (
                       <button
                         onClick={stopStreaming}
                         className="send-btn stop"
@@ -1603,7 +1640,7 @@ function App() {
 
                 {selectedMode === 'law' && (
                   <>
-                    {(isLawRagLoading || isLawMultisearchLoading) ? (
+                    {(isLawRagLoading || isLawMultisearchLoading || hasActiveLawRagStreaming()) ? (
                       <button
                         onClick={stopStreaming}
                         className="send-btn stop"
