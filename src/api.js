@@ -1,5 +1,5 @@
 // 使用您提供的真实OpenAI API代码
-export const callOpenAI = async (model, message, retryCount = 0) => {
+export const callOpenAI = async (model, message, signal = null, retryCount = 0) => {
   const maxRetries = 2;
 
   try {
@@ -26,7 +26,8 @@ export const callOpenAI = async (model, message, retryCount = 0) => {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer sk-OsexRhsOdqg5yb9i8c637435AeF1445f9c6cD2717a95167a'
       },
-      body: JSON.stringify(requestBody)
+      body: JSON.stringify(requestBody),
+      signal: signal // 添加中止信号支持
     });
 
     if (!response.ok) {

@@ -15,6 +15,7 @@ function App() {
   const [isLawMultisearchLoading, setIsLawMultisearchLoading] = useState(false); // 法律多源检索加载状态
   const [selectedMode, setSelectedMode] = useState('chat'); // 'chat', 'stock', 'law'
   const messagesEndRef = useRef(null);
+  const abortControllerRef = useRef(null); // 用于控制流式输出的中止
 
   // 根据开关状态生成模型名称
   const getModelName = () => {
@@ -36,6 +37,31 @@ function App() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // 停止流式输出
+  const stopStreaming = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+      setIsLoading(false);
+      setIsRagLoading(false);
+      setIsLawRagLoading(false);
+      setIsLawMultisearchLoading(false);
+
+      // 更新最后一条消息的流式状态
+      setMessages(prev => prev.map((msg, index) => {
+        if (index === prev.length - 1 && msg.role === 'assistant' && (msg.isStreaming || isLawRagLoading || isLawMultisearchLoading)) {
+          return {
+            ...msg,
+            isStreaming: false,
+            content: msg.content || msg.mainContent || '回答被中断',
+            mainContent: msg.mainContent || msg.content || '回答被中断'
+          };
+        }
+        return msg;
+      }));
+    }
+  };
 
   // 从搜索结果中提取引用信息
   const extractSearchResults = (content) => {
@@ -209,6 +235,9 @@ function App() {
     setInputValue('');
     setIsLoading(true);
 
+    // 创建中止控制器
+    abortControllerRef.current = new AbortController();
+
     // 创建一个临时的loading消息
     const tempMessageId = Date.now();
     const loadingMessage = {
@@ -222,7 +251,7 @@ function App() {
     setMessages(prev => [...prev, loadingMessage]);
 
     try {
-      const response = await callOpenAI(getModelName(), currentInput);
+      const response = await callOpenAI(getModelName(), currentInput, abortControllerRef.current.signal);
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
@@ -244,6 +273,11 @@ function App() {
       ));
 
       while (true) {
+        // 检查是否被中止
+        if (abortControllerRef.current?.signal.aborted) {
+          break;
+        }
+
         const { done, value } = await reader.read();
         if (done) break;
 
@@ -314,6 +348,7 @@ function App() {
       ));
     } finally {
       setIsLoading(false);
+      abortControllerRef.current = null; // 清理 AbortController
     }
   };
 
@@ -407,6 +442,9 @@ function App() {
     setInputValue('');
     setIsRagLoading(true);
 
+    // 创建中止控制器
+    abortControllerRef.current = new AbortController();
+
     // 记录开始时间
     const startTime = performance.now();
     let ttft = null; // Time To First Token
@@ -447,7 +485,8 @@ function App() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(requestParams)
+        body: JSON.stringify(requestParams),
+        signal: abortControllerRef.current.signal
       });
 
       if (!response.ok) {
@@ -462,6 +501,11 @@ function App() {
       let searchFinished = false;
 
       while (true) {
+        // 检查是否被中止
+        if (abortControllerRef.current?.signal.aborted) {
+          break;
+        }
+
         const { done, value } = await reader.read();
         if (done) break;
 
@@ -594,6 +638,7 @@ function App() {
       }));
     } finally {
       setIsRagLoading(false);
+      abortControllerRef.current = null; // 清理 AbortController
     }
   };
 
@@ -767,6 +812,9 @@ function App() {
     setInputValue('');
     setIsLawRagLoading(true);
 
+    // 创建中止控制器
+    abortControllerRef.current = new AbortController();
+
     try {
       const tempMessageId = Date.now().toString();
       let messageCreated = false;
@@ -778,7 +826,8 @@ function App() {
           model: "HKGAI-V1-Thinking-RAG-Chat",
           messages: [{ role: "user", content: currentInput }],
           stream: true
-        })
+        }),
+        signal: abortControllerRef.current.signal
       });
 
       if (!response.ok) {
@@ -789,6 +838,11 @@ function App() {
       const decoder = new TextDecoder();
 
       while (true) {
+        // 检查是否被中止
+        if (abortControllerRef.current?.signal.aborted) {
+          break;
+        }
+
         const { done, value } = await reader.read();
         if (done) break;
 
@@ -868,6 +922,7 @@ function App() {
       }]);
     } finally {
       setIsLawRagLoading(false);
+      abortControllerRef.current = null; // 清理 AbortController
     }
   };
 
@@ -881,6 +936,9 @@ function App() {
     setInputValue('');
     setIsLawMultisearchLoading(true);
 
+    // 创建中止控制器
+    abortControllerRef.current = new AbortController();
+
     try {
       const response = await fetch('/api/law/multisearch/multisearch', {
         method: 'POST',
@@ -890,7 +948,8 @@ function App() {
           generate_overview: false,
           streaming: false,
           recalls: { hk_ordinance: {}, hk_case: {}, google: {} }
-        })
+        }),
+        signal: abortControllerRef.current.signal
       });
 
       if (!response.ok) {
@@ -925,6 +984,7 @@ function App() {
       }]);
     } finally {
       setIsLawMultisearchLoading(false);
+      abortControllerRef.current = null; // 清理 AbortController
     }
   };
 
@@ -1395,20 +1455,31 @@ function App() {
               <div className="button-group">
                 {selectedMode === 'chat' && (
                   <>
-                    <button
-                      onClick={sendMessage}
-                      disabled={isLoading || isRagLoading || !inputValue.trim()}
-                      className="send-btn primary"
-                    >
-                      {isLoading ? '发送中...' : 'RAG'}
-                    </button>
-                    <button
-                      onClick={callRagApi}
-                      disabled={isLoading || isRagLoading || !inputValue.trim()}
-                      className="send-btn secondary"
-                    >
-                      {isRagLoading ? '查询中...' : 'Multisearch'}
-                    </button>
+                    {(isLoading || isRagLoading) ? (
+                      <button
+                        onClick={stopStreaming}
+                        className="send-btn stop"
+                      >
+                        ⏹️ 停止
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          onClick={sendMessage}
+                          disabled={!inputValue.trim()}
+                          className="send-btn primary"
+                        >
+                          RAG
+                        </button>
+                        <button
+                          onClick={callRagApi}
+                          disabled={!inputValue.trim()}
+                          className="send-btn secondary"
+                        >
+                          Multisearch
+                        </button>
+                      </>
+                    )}
                   </>
                 )}
 
@@ -1424,20 +1495,31 @@ function App() {
 
                 {selectedMode === 'law' && (
                   <>
-                    <button
-                      onClick={callLawRagApi}
-                      disabled={isLawRagLoading || isLawMultisearchLoading || !inputValue.trim()}
-                      className="send-btn primary"
-                    >
-                      {isLawRagLoading ? '咨询中...' : 'RAG'}
-                    </button>
-                    <button
-                      onClick={callLawMultisearchApi}
-                      disabled={isLawRagLoading || isLawMultisearchLoading || !inputValue.trim()}
-                      className="send-btn secondary"
-                    >
-                      {isLawMultisearchLoading ? '检索中...' : 'Multisearch'}
-                    </button>
+                    {(isLawRagLoading || isLawMultisearchLoading) ? (
+                      <button
+                        onClick={stopStreaming}
+                        className="send-btn stop"
+                      >
+                        ⏹️ 停止
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          onClick={callLawRagApi}
+                          disabled={!inputValue.trim()}
+                          className="send-btn primary"
+                        >
+                          RAG
+                        </button>
+                        <button
+                          onClick={callLawMultisearchApi}
+                          disabled={!inputValue.trim()}
+                          className="send-btn secondary"
+                        >
+                          Multisearch
+                        </button>
+                      </>
+                    )}
                   </>
                 )}
               </div>
