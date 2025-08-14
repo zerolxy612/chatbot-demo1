@@ -929,7 +929,7 @@ function App() {
         {/* 顶部导航栏 */}
         <div className="chat-header">
           <div className="header-left">
-            <h1 className="header-title">AI助手</h1>
+            <h1 className="header-title">Welcome to the testing environment</h1>
           </div>
           <div className="header-right">
             <span className="model-status">
@@ -1199,28 +1199,7 @@ function App() {
           <div ref={messagesEndRef} />
         </div>
 
-        <div className="input-container">
-          <textarea
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="输入您的问题..."
-            disabled={isLoading || isRagLoading}
-            rows="3"
-          />
-          <div className="button-group">
-            <button onClick={sendMessage} disabled={isLoading || isRagLoading || !inputValue.trim()}>
-              {isLoading ? '发送中...' : 'rag'}
-            </button>
-            <button
-              onClick={callRagApi}
-              disabled={isLoading || isRagLoading || !inputValue.trim()}
-              className="rag-button"
-            >
-              {isRagLoading ? '查询中...' : 'multisearch'}
-            </button>
-          </div>
-        </div>
+
 
         {/* 底部输入区域 */}
         <div className="unified-input-container">
