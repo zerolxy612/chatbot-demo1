@@ -927,7 +927,7 @@ function App() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: "HKGAI-V1-Thinking-RAG-Chat",
+          model: "HKGAI-V1-Thinking-RAG-Legal-Chat",
           messages: [{ role: "user", content: currentInput }],
           stream: true
         }),
@@ -1060,7 +1060,7 @@ function App() {
           query: currentInput,
           generate_overview: false,
           streaming: false,
-          recalls: { hk_ordinance: {}, hk_case: {}, google: {} }
+          recalls: { legal_hk_ordinance: {}, legal_hk_case: {}, legal_google: {} }
         }),
         signal: abortControllerRef.current.signal
       });
