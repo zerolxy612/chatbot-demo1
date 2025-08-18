@@ -473,7 +473,7 @@ function LawChatInterface({ onToggleInterface }) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: "HKGAI-V1-Thinking-RAG-Chat",
+          model: "HKGAI-V1-Thinking-RAG-Legal-Chat",
           messages: [
             {
               role: "user",
