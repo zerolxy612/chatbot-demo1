@@ -34,7 +34,7 @@ export default async function handler(req, res) {
     console.log('Law RAG API - About to call external API');
 
     // 转发请求到实际的Law RAG API
-    const targetUrl = 'https://lexihkrag-test.hkgai.asia/v1/chat/completions';
+    const targetUrl = 'https://lexihk-search-test.hkgai.asia/multisearch';
     console.log('Law RAG API - Target URL:', targetUrl);
 
     const response = await fetch(targetUrl, {
