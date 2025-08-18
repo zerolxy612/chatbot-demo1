@@ -629,9 +629,9 @@ function LawChatInterface({ onToggleInterface }) {
           generate_overview: false,
           streaming: false,
           recalls: {
-            hk_ordinance: {},
-            hk_case: {},
-            google: {}
+            legal_hk_ordinance: {},
+            legal_hk_case: {},
+            legal_google: {}
           }
         })
       });
