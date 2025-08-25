@@ -24,7 +24,7 @@ export const callOpenAI = async (model, message, signal = null, retryCount = 0) 
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer sk-OsexRhsOdqg5yb9i8c637435AeF1445f9c6cD2717a95167a'
+        'Authorization': 'Bearer sk-4ULz2dv9hA9CsKDuB7Cd804a6fDf4d4fB707C539A4A1D41a'
       },
       body: JSON.stringify(requestBody),
       signal: signal // 添加中止信号支持

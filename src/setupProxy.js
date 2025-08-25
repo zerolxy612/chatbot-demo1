@@ -53,7 +53,7 @@ module.exports = function(app) {
         '^/api': '', // remove base path
       },
       headers: {
-        'Authorization': 'Bearer sk-OsexRhsOdqg5yb9i8c637435AeF1445f9c6cD2717a95167a'
+        'Authorization': 'Bearer sk-4ULz2dv9hA9CsKDuB7Cd804a6fDf4d4fB707C539A4A1D41a'
       }
     })
   );
