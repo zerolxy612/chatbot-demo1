@@ -403,15 +403,27 @@ function App() {
   };
 
   // 自定义ReactMarkdown组件，处理引用链接
-  const MarkdownWithCitations = ({ children, searchResults = [] }) => {
+  const MarkdownWithCitations = ({ children, searchResults = [], messageIndex }) => {
     // 处理引用点击
     const handleCitationClick = (citationId) => {
       const result = searchResults.find(r => r.id === citationId);
+
+      // 构建唯一的引用元素ID，包含消息索引
+      const uniqueRefId = `citation-${messageIndex}-${citationId}`;
+      const refElement = document.getElementById(uniqueRefId);
+
       if (result && result.url) {
+        // 如果有URL，先打开URL，然后滚动到对应的引用信息
         window.open(result.url, '_blank');
+        if (refElement) {
+          refElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          refElement.style.backgroundColor = '#fff3cd';
+          setTimeout(() => {
+            refElement.style.backgroundColor = '';
+          }, 2000);
+        }
       } else {
-        // 如果没有URL，滚动到引用信息
-        const refElement = document.getElementById(`citation-${citationId}`);
+        // 如果没有URL，只滚动到引用信息
         if (refElement) {
           refElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
           refElement.style.backgroundColor = '#fff3cd';
@@ -423,13 +435,31 @@ function App() {
     };
 
     // 处理文本中的引用标记
-    const processContent = (text) => {
-      if (typeof text !== 'string') return text;
+    const processContent = (content) => {
+      // 处理数组情况（ReactMarkdown的children可能是数组）
+      if (Array.isArray(content)) {
+        return content.map((item) => {
+          if (typeof item === 'string') {
+            return processContent(item);
+          }
+          return item;
+        });
+      }
+
+      // 处理非字符串情况
+      if (typeof content !== 'string') {
+        return content;
+      }
 
       // 先解码Unicode字符
-      text = text.replace(/\\u([0-9a-fA-F]{4})/g, (_, code) => {
+      let text = content.replace(/\\u([0-9a-fA-F]{4})/g, (_, code) => {
         return String.fromCharCode(parseInt(code, 16));
       });
+
+      // 检查是否包含引用标记
+      if (!text.includes('[citation:')) {
+        return text;
+      }
 
       // 分割文本，保留引用标记
       const parts = text.split(/(\[citation:\d+\])/g);
@@ -440,19 +470,27 @@ function App() {
           const citationId = parseInt(citationMatch[1]);
           const result = searchResults.find(r => r.id === citationId);
 
+          // 添加调试信息
+          console.log(`处理引用标记 [citation:${citationId}]:`, {
+            找到结果: !!result,
+            结果详情: result ? { id: result.id, title: result.title, hasUrl: !!result.url } : null,
+            searchResults总数: searchResults.length
+          });
+
           return (
             <sup
-              key={index}
+              key={`citation-${index}-${citationId}`}
               className="citation-link"
-              title={result ? `${result.title} - ${result.source}` : '引用来源'}
+              title={result ? `${result.title} - ${result.source}` : `引用来源 ${citationId}`}
               onClick={() => handleCitationClick(citationId)}
               style={{
-                color: '#1976d2',
+                color: result ? '#1976d2' : '#666',
                 cursor: 'pointer',
                 textDecoration: 'underline',
                 fontSize: '0.8em',
                 marginLeft: '2px',
-                fontWeight: 'bold'
+                fontWeight: 'bold',
+                opacity: result ? 1 : 0.7
               }}
             >
               [{citationId}]
@@ -467,11 +505,28 @@ function App() {
       <div>
         <ReactMarkdown
           components={{
+            // 处理段落
             p: ({ children }) => <p>{processContent(children)}</p>,
+            // 处理列表项
             li: ({ children }) => <li>{processContent(children)}</li>,
+            // 处理标题
+            h1: ({ children }) => <h1>{processContent(children)}</h1>,
+            h2: ({ children }) => <h2>{processContent(children)}</h2>,
+            h3: ({ children }) => <h3>{processContent(children)}</h3>,
+            h4: ({ children }) => <h4>{processContent(children)}</h4>,
+            h5: ({ children }) => <h5>{processContent(children)}</h5>,
+            h6: ({ children }) => <h6>{processContent(children)}</h6>,
+            // 处理强调和加粗
+            em: ({ children }) => <em>{processContent(children)}</em>,
+            strong: ({ children }) => <strong>{processContent(children)}</strong>,
             // 处理其他可能包含文本的元素
             span: ({ children }) => <span>{processContent(children)}</span>,
-            div: ({ children }) => <div>{processContent(children)}</div>
+            div: ({ children }) => <div>{processContent(children)}</div>,
+            // 处理引用块
+            blockquote: ({ children }) => <blockquote>{processContent(children)}</blockquote>,
+            // 处理表格单元格
+            td: ({ children }) => <td>{processContent(children)}</td>,
+            th: ({ children }) => <th>{processContent(children)}</th>
           }}
         >
           {children}
@@ -824,10 +879,10 @@ function App() {
                           <div className="rag-references" style={{ marginBottom: '20px' }}>
                             <div className="references-header">📚 引用来源 ({message.searchResults.length})</div>
                             <div className="references-list">
-                              {message.searchResults.map((result, index) => {
+                              {message.searchResults.map((result, refIndex) => {
                                 console.log('显示搜索结果:', result); // 调试信息
                                 return (
-                                  <div key={index} id={`citation-${result.id}`} className="reference-item">
+                                  <div key={refIndex} id={`citation-${index}-${result.id}`} className="reference-item">
                                     <div className="reference-title">
                                       <span className="citation-number">[{result.id}]</span>
                                       {result.title}
@@ -871,7 +926,7 @@ function App() {
                         {/* 主要内容显示 */}
                         {message.mainContent && (
                           <div className="main-content compact">
-                            <MarkdownWithCitations searchResults={message.searchResults || []}>
+                            <MarkdownWithCitations searchResults={message.searchResults || []} messageIndex={index}>
                               {message.mainContent}
                             </MarkdownWithCitations>
                           </div>
@@ -880,7 +935,7 @@ function App() {
                         {/* 兼容旧格式 */}
                         {!message.thinkContent && !message.mainContent && message.content && (
                           <div className="main-content compact">
-                            <MarkdownWithCitations searchResults={message.searchResults || []}>
+                            <MarkdownWithCitations searchResults={message.searchResults || []} messageIndex={index}>
                               {message.content}
                             </MarkdownWithCitations>
                           </div>

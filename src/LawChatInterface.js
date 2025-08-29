@@ -22,13 +22,31 @@ const LawMarkdownWithCitations = ({ children, searchResults = [] }) => {
   };
 
   // 处理文本中的引用标记
-  const processContent = (text) => {
-    if (typeof text !== 'string') return text;
+  const processContent = (content) => {
+    // 处理数组情况（ReactMarkdown的children可能是数组）
+    if (Array.isArray(content)) {
+      return content.map((item) => {
+        if (typeof item === 'string') {
+          return processContent(item);
+        }
+        return item;
+      });
+    }
+
+    // 处理非字符串情况
+    if (typeof content !== 'string') {
+      return content;
+    }
 
     // 先解码Unicode字符
-    text = text.replace(/\\u([0-9a-fA-F]{4})/g, (_, code) => {
+    let text = content.replace(/\\u([0-9a-fA-F]{4})/g, (_, code) => {
       return String.fromCharCode(parseInt(code, 16));
     });
+
+    // 检查是否包含引用标记
+    if (!text.includes('[citation:')) {
+      return text;
+    }
 
     // 分割文本，保留引用标记
     const parts = text.split(/(\[citation:\d+\])/g);
@@ -39,19 +57,27 @@ const LawMarkdownWithCitations = ({ children, searchResults = [] }) => {
         const citationId = parseInt(citationMatch[1]);
         const result = searchResults.find(r => r.id === citationId);
 
+        // 添加调试信息
+        console.log(`法律界面 - 处理引用标记 [citation:${citationId}]:`, {
+          找到结果: !!result,
+          结果详情: result ? { id: result.id, title: result.title, hasUrl: !!result.url } : null,
+          searchResults总数: searchResults.length
+        });
+
         return (
           <sup
-            key={index}
+            key={`law-citation-${index}-${citationId}`}
             className="citation-link"
-            title={result ? `${result.title} - ${result.source}` : '引用来源'}
+            title={result ? `${result.title} - ${result.source}` : `引用来源 ${citationId}`}
             onClick={() => handleCitationClick(citationId)}
             style={{
-              color: '#1976d2',
+              color: result ? '#1976d2' : '#666',
               cursor: 'pointer',
               textDecoration: 'underline',
               fontSize: '0.8em',
               marginLeft: '2px',
-              fontWeight: 'bold'
+              fontWeight: 'bold',
+              opacity: result ? 1 : 0.7
             }}
           >
             [{citationId}]
@@ -66,11 +92,28 @@ const LawMarkdownWithCitations = ({ children, searchResults = [] }) => {
     <div>
       <ReactMarkdown
         components={{
+          // 处理段落
           p: ({ children }) => <p>{processContent(children)}</p>,
+          // 处理列表项
           li: ({ children }) => <li>{processContent(children)}</li>,
+          // 处理标题
+          h1: ({ children }) => <h1>{processContent(children)}</h1>,
+          h2: ({ children }) => <h2>{processContent(children)}</h2>,
+          h3: ({ children }) => <h3>{processContent(children)}</h3>,
+          h4: ({ children }) => <h4>{processContent(children)}</h4>,
+          h5: ({ children }) => <h5>{processContent(children)}</h5>,
+          h6: ({ children }) => <h6>{processContent(children)}</h6>,
+          // 处理强调和加粗
+          em: ({ children }) => <em>{processContent(children)}</em>,
+          strong: ({ children }) => <strong>{processContent(children)}</strong>,
           // 处理其他可能包含文本的元素
           span: ({ children }) => <span>{processContent(children)}</span>,
-          div: ({ children }) => <div>{processContent(children)}</div>
+          div: ({ children }) => <div>{processContent(children)}</div>,
+          // 处理引用块
+          blockquote: ({ children }) => <blockquote>{processContent(children)}</blockquote>,
+          // 处理表格单元格
+          td: ({ children }) => <td>{processContent(children)}</td>,
+          th: ({ children }) => <th>{processContent(children)}</th>
         }}
       >
         {children}
