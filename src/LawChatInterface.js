@@ -353,13 +353,14 @@ const parseLawRagContent = (content) => {
   const afterThink = content.replace(/<think>[\s\S]*?<\/think>/, '');
   const mainContent = filterLawMainContent(afterThink);
 
-  console.log('法律RAG - 解析结果:', {
-    原始内容长度: content.length,
-    thinkContent: thinkContent.length,
-    mainContent: mainContent.length,
-    searchResults: searchResults.length,
-    原始内容前100字符: content.substring(0, 100)
-  });
+  // 静默模式 - 注释掉调试日志
+  // console.log('法律RAG - 解析结果:', {
+  //   原始内容长度: content.length,
+  //   thinkContent: thinkContent.length,
+  //   mainContent: mainContent.length,
+  //   searchResults: searchResults.length,
+  //   原始内容前100字符: content.substring(0, 100)
+  // });
 
   return {
     thinkContent,
@@ -468,11 +469,11 @@ const extractLawSearchResults = (content) => {
               source: decodeText(result.source) || 'Unknown',
               score: result.score || 0
             });
-            console.log(`✅ 成功解析JSON第${index + 1}个:`, result.doc_index, decodeText(result.title));
+            // console.log(`✅ 成功解析JSON第${index + 1}个:`, result.doc_index, decodeText(result.title));
           }
         } catch (jsonError) {
-          console.warn(`❌ 解析JSON第${index + 1}个失败:`, jsonError.message);
-          console.log('失败的JSON前100字符:', line.substring(0, 100));
+          // console.warn(`❌ 解析JSON第${index + 1}个失败:`, jsonError.message);
+          // console.log('失败的JSON前100字符:', line.substring(0, 100));
         }
       });
     } else {
@@ -512,7 +513,7 @@ const extractLawSearchResults = (content) => {
               });
             }
           } catch (lineError) {
-            console.warn('解析法律搜索结果行失败:', line, lineError);
+            // console.warn('解析法律搜索结果行失败:', line, lineError);
           }
         });
       }
@@ -543,12 +544,12 @@ const extractLawSearchResults = (content) => {
               });
             }
           } catch (lineError) {
-            console.warn('解析流式搜索结果行失败:', line, lineError);
+            // console.warn('解析流式搜索结果行失败:', line, lineError);
           }
         });
       } else {
         // 方法2：没有换行符，可能是连续的JSON对象，需要手动分割
-        console.log('法律RAG - 检测到连续JSON对象，尝试手动分割...');
+        // console.log('法律RAG - 检测到连续JSON对象，尝试手动分割...');
 
         // 先尝试简单的 }{ 分割方法
         if (searchData.includes('}{')) {
@@ -568,11 +569,11 @@ const extractLawSearchResults = (content) => {
                   source: decodeText(result.source) || 'Unknown',
                   score: result.score || 0
                 });
-                console.log(`成功解析连续JSON第${index + 1}个:`, result.doc_index, decodeText(result.title));
+                // console.log(`成功解析连续JSON第${index + 1}个:`, result.doc_index, decodeText(result.title));
               }
             } catch (jsonError) {
-              console.warn(`解析连续JSON第${index + 1}个失败:`, jsonError.message);
-              console.log('失败的JSON内容前100字符:', line.substring(0, 100));
+              // console.warn(`解析连续JSON第${index + 1}个失败:`, jsonError.message);
+              // console.log('失败的JSON内容前100字符:', line.substring(0, 100));
             }
           });
         }
@@ -614,7 +615,7 @@ const extractLawSearchResults = (content) => {
                   });
                 }
               } catch (parseError) {
-                console.warn('手动分割JSON解析失败:', currentJson.substring(0, 100) + '...', parseError);
+                // console.warn('手动分割JSON解析失败:', currentJson.substring(0, 100) + '...', parseError);
               }
               inJson = false;
               currentJson = '';
@@ -629,7 +630,7 @@ const extractLawSearchResults = (content) => {
 
     // 额外处理：直接在内容中查找JSON对象（以防标签不完整）
     if (searchResults.length === 0 && content.includes('"doc_index"')) {
-      console.log('法律RAG - 尝试手动解析连续JSON对象...');
+      // console.log('法律RAG - 尝试手动解析连续JSON对象...');
 
       // 手动解析大括号，处理连续的JSON对象（无换行符分隔）
       let braceCount = 0;
@@ -655,7 +656,7 @@ const extractLawSearchResults = (content) => {
             try {
               const result = JSON.parse(currentJson);
               if (result && result.doc_index) {
-                console.log(`法律RAG - 成功解析JSON对象 ${result.doc_index}:`, decodeText(result.title));
+                // console.log(`法律RAG - 成功解析JSON对象 ${result.doc_index}:`, decodeText(result.title));
                 searchResults.push({
                   id: result.doc_index,
                   title: decodeText(result.title) || '法律文档',
@@ -666,8 +667,8 @@ const extractLawSearchResults = (content) => {
                 });
               }
             } catch (parseError) {
-              console.warn('手动解析JSON失败:', parseError.message);
-              console.warn('失败的JSON前100字符:', currentJson.substring(0, 100) + '...');
+              // console.warn('手动解析JSON失败:', parseError.message);
+              // console.warn('失败的JSON前100字符:', currentJson.substring(0, 100) + '...');
             }
             inJson = false;
             currentJson = '';
@@ -704,48 +705,23 @@ function LawChatInterface({ onToggleInterface }) {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  // 暴力负边距大法 - 直接按您的方式！
+  // 统一负边距应用
   const forceCompactStyles = () => {
     setTimeout(() => {
       const ragContent = document.querySelectorAll('.law-rag-content');
-      const screenWidth = window.innerWidth;
 
       ragContent.forEach(container => {
-        // 根据屏幕尺寸设置不同的负边距
-        let ulMargin, liMargin, pMargin, lineHeight;
-
-        if (screenWidth >= 1025) {
-          // 桌面端 - 最大负边距
-          ulMargin = '-24px 0';
-          liMargin = '-8px 0';
-          pMargin = '-16px 0';
-          lineHeight = '1.1';
-        } else if (screenWidth <= 768) {
-          // 移动端
-          ulMargin = '-18px 0';
-          liMargin = '-6px 0';
-          pMargin = '-12px 0';
-          lineHeight = '1.2';
-        } else {
-          // 平板端
-          ulMargin = '-20px 0';
-          liMargin = '-7px 0';
-          pMargin = '-14px 0';
-          lineHeight = '1.15';
-        }
-
-        // 应用到所有子元素
         const allElements = container.querySelectorAll('*');
         allElements.forEach(element => {
           if (element.tagName === 'UL' || element.tagName === 'OL') {
-            element.style.setProperty('margin', ulMargin, 'important');
+            element.style.setProperty('margin', '-18px 0', 'important');
             element.style.setProperty('padding-left', '20px', 'important');
-            element.style.setProperty('line-height', lineHeight, 'important');
+            element.style.setProperty('line-height', '1.1', 'important');
           }
 
           if (element.tagName === 'LI') {
-            element.style.setProperty('margin', liMargin, 'important');
-            element.style.setProperty('line-height', lineHeight, 'important');
+            element.style.setProperty('margin', '-8px 0', 'important');
+            element.style.setProperty('line-height', '1.1', 'important');
           }
 
           if (element.tagName === 'P') {
@@ -753,9 +729,6 @@ function LawChatInterface({ onToggleInterface }) {
               // 列表项内的段落内联显示
               element.style.setProperty('display', 'inline', 'important');
               element.style.setProperty('margin', '0', 'important');
-            } else {
-              element.style.setProperty('margin', pMargin, 'important');
-              element.style.setProperty('line-height', lineHeight, 'important');
             }
           }
         });

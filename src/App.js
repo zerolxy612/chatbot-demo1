@@ -145,7 +145,8 @@ function App() {
               });
             }
           } catch (lineError) {
-            console.warn('解析行失败:', line, lineError);
+            // 静默处理解析错误，避免控制台噪音
+            // console.warn('解析行失败:', line, lineError);
           }
         });
 
@@ -168,7 +169,8 @@ function App() {
                   });
                 }
               } catch (matchError) {
-                console.warn('正则匹配解析失败:', match, matchError);
+                // 静默处理正则匹配解析错误
+                // console.warn('正则匹配解析失败:', match, matchError);
               }
             });
           }

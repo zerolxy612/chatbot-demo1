@@ -2909,6 +2909,11 @@ div.law-rag-content div.law-compact-markdown li p {
   line-height: 1.1 !important;
 }
 
+.law-rag-content li {
+  margin: -8px 0 !important;
+  line-height: 1.1 !important;
+}
+
 /* 嵌套列表特殊处理 */
 .law-rag-content li ul,
 .law-rag-content li ol {
