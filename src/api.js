@@ -1,10 +1,19 @@
-// 使用您提供的真实OpenAI API代码
-export const callOpenAI = async (model, message, signal = null, retryCount = 0) => {
+// 使用您提供的真实OpenAI API代码，支持版本选择
+export const callOpenAI = async (model, message, signal = null, version = 'v2', retryCount = 0) => {
   const maxRetries = 2;
 
   try {
+    // 根据版本选择不同的API密钥，但都使用传入的model参数
+    let apiKey;
+    if (version === 'v1') {
+      apiKey = 'sk-GMry087g9uFQ0abV0380D8061a244573A0186bE21eD642A3';
+    } else {
+      // v2 (默认)
+      apiKey = 'sk-4ULz2dv9hA9CsKDuB7Cd804a6fDf4d4fB707C539A4A1D41a';
+    }
+
     const requestBody = {
-      model: model,
+      model: model, // 直接使用传入的model参数
       messages: [
         { role: "user", content: message }
       ],
@@ -24,7 +33,7 @@ export const callOpenAI = async (model, message, signal = null, retryCount = 0) 
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer sk-4ULz2dv9hA9CsKDuB7Cd804a6fDf4d4fB707C539A4A1D41a'
+        'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify(requestBody),
       signal: signal // 添加中止信号支持

@@ -14,6 +14,7 @@ function App() {
   const [isLawRagLoading, setIsLawRagLoading] = useState(false); // 法律RAG加载状态
   const [isLawMultisearchLoading, setIsLawMultisearchLoading] = useState(false); // 法律多源检索加载状态
   const [selectedMode, setSelectedMode] = useState('chat'); // 'chat', 'stock', 'law'
+  const [selectedVersion, setSelectedVersion] = useState('v2'); // 'v1', 'v2'
   const messagesEndRef = useRef(null);
   const abortControllerRef = useRef(null); // 用于控制流式输出的中止
 
@@ -37,8 +38,9 @@ function App() {
     );
   };
 
-  // 根据开关状态生成模型名称
+  // 根据版本和开关状态生成模型名称
   const getModelName = () => {
+    // V1和V2都根据开关状态切换，只是使用不同的API密钥
     if (isThinkingEnabled && isNetworkEnabled) {
       return "HKGAI-V1-Thinking-RAG-Chat";
     } else if (isThinkingEnabled && !isNetworkEnabled) {
@@ -281,7 +283,7 @@ function App() {
     setMessages(prev => [...prev, loadingMessage]);
 
     try {
-      const response = await callOpenAI(getModelName(), currentInput, abortControllerRef.current.signal);
+      const response = await callOpenAI(getModelName(), currentInput, abortControllerRef.current.signal, selectedVersion);
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
@@ -1551,7 +1553,9 @@ function App() {
               </button>
             </div>
 
-            {/* 聊天模式的功能控制按钮 - 放在模式选择器下方 */}
+
+
+            {/* 聊天模式的功能控制按钮 - 放在版本选择器下方 */}
             {selectedMode === 'chat' && (
               <div className="chat-controls">
                 <button
@@ -1600,13 +1604,25 @@ function App() {
                       </button>
                     ) : (
                       <>
-                        <button
-                          onClick={sendMessage}
-                          disabled={!inputValue.trim()}
-                          className="send-btn primary"
-                        >
-                          RAG
-                        </button>
+                        {/* RAG按钮和版本选择器组合 */}
+                        <div className="rag-button-group">
+                          <button
+                            onClick={sendMessage}
+                            disabled={!inputValue.trim()}
+                            className="send-btn primary rag-main-btn"
+                          >
+                            RAG
+                          </button>
+                          <select
+                            className="version-selector-attached"
+                            value={selectedVersion}
+                            onChange={(e) => setSelectedVersion(e.target.value)}
+                            title="选择模型版本"
+                          >
+                            <option value="v2">V2</option>
+                            <option value="v1">V1</option>
+                          </select>
+                        </div>
                         <button
                           onClick={callRagApi}
                           disabled={!inputValue.trim()}
