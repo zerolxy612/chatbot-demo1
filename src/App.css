@@ -1835,6 +1835,309 @@ body {
   line-height: 1.2 !important;
 }
 
+/* 法律内容紧凑样式 - 统一简洁的样式 */
+.law-markdown-container p {
+  margin: 3px 0 !important;
+  line-height: 1.5 !important;
+}
+
+.law-markdown-container h1,
+.law-markdown-container h2,
+.law-markdown-container h3,
+.law-markdown-container h4,
+.law-markdown-container h5,
+.law-markdown-container h6 {
+  margin: 8px 0 4px 0 !important;
+  line-height: 1.4 !important;
+  font-weight: 600;
+}
+
+.law-markdown-container ul,
+.law-markdown-container ol {
+  margin: 3px 0 !important;
+  padding-left: 20px !important;
+}
+
+.law-markdown-container li {
+  margin: 1px 0 !important;
+  line-height: 1.4 !important;
+}
+
+.law-markdown-container strong {
+  font-weight: 600;
+}
+
+.law-markdown-container em {
+  font-style: italic;
+}
+
+.law-markdown-container code {
+  background: #f4f4f4;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-family: monospace;
+  font-size: 0.9em;
+}
+
+.law-markdown-container blockquote {
+  border-left: 4px solid #ddd;
+  margin: 4px 0 !important;
+  padding-left: 12px;
+  color: #666;
+  font-style: italic;
+}
+
+/* 移除所有可能的额外间距 */
+.law-markdown-container > *:first-child {
+  margin-top: 0 !important;
+}
+
+.law-markdown-container > *:last-child {
+  margin-bottom: 0 !important;
+}
+
+/* 处理嵌套列表的间距 */
+.law-markdown-container li ul,
+.law-markdown-container li ol {
+  margin: 1px 0 !important;
+  padding-left: 16px !important;
+}
+
+.law-markdown-container li li {
+  margin: 0px 0 !important;
+}
+
+/* 处理列表项内的段落 */
+.law-markdown-container li p {
+  margin: 0px 0 !important;
+  display: inline !important;
+}
+
+/* 强制移除所有可能造成大间距的元素 */
+.law-markdown-container hr {
+  display: none !important;
+}
+
+.law-markdown-container br {
+  display: none !important;
+}
+
+/* 将 div 转换为 inline 元素，避免块级间距 */
+.law-markdown-container div {
+  display: inline !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* 处理其他可能的块级元素 */
+.law-markdown-container section,
+.law-markdown-container article {
+  display: inline !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* 简单Markdown渲染器样式 - 极致紧凑 */
+.simple-markdown-container {
+  line-height: 1.4;
+  font-size: 14px;
+}
+
+.simple-paragraph {
+  margin: 2px 0 !important;
+  line-height: 1.4 !important;
+  display: block;
+}
+
+.simple-heading {
+  margin: 6px 0 3px 0 !important;
+  line-height: 1.3 !important;
+  font-weight: 600;
+  display: block;
+}
+
+.simple-list {
+  margin: 2px 0 !important;
+  padding-left: 18px !important;
+  list-style-type: disc;
+}
+
+.simple-list-item {
+  margin: 1px 0 !important;
+  line-height: 1.4 !important;
+  padding: 0 !important;
+}
+
+.simple-blockquote {
+  margin: 3px 0 !important;
+  padding-left: 10px !important;
+  border-left: 3px solid #ddd;
+  color: #666;
+  font-style: italic;
+  display: block;
+}
+
+/* 移除所有可能的额外间距 */
+.simple-markdown-container > *:first-child {
+  margin-top: 0 !important;
+}
+
+.simple-markdown-container > *:last-child {
+  margin-bottom: 0 !important;
+}
+
+/* 强制所有元素使用紧凑样式 */
+.simple-markdown-container * {
+  box-sizing: border-box;
+  word-wrap: break-word;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+/* 法律界面专用 - 超强力覆盖ReactMarkdown默认样式 */
+.law-compact-markdown {
+  line-height: 1.2 !important;
+  font-size: 14px !important;
+}
+
+/* 超强力覆盖段落样式 - 使用更高优先级 */
+.law-rag-content .law-compact-markdown p,
+.law-compact-markdown p {
+  margin: 1px 0 !important;
+  margin-top: 1px !important;
+  margin-bottom: 1px !important;
+  padding: 0 !important;
+  line-height: 1.2 !important;
+  display: block !important;
+}
+
+/* 强力覆盖标题样式 */
+.law-compact-markdown h1,
+.law-compact-markdown h2,
+.law-compact-markdown h3,
+.law-compact-markdown h4,
+.law-compact-markdown h5,
+.law-compact-markdown h6 {
+  margin: 6px 0 3px 0 !important;
+  padding: 0 !important;
+  line-height: 1.3 !important;
+  font-weight: 600 !important;
+  display: block !important;
+}
+
+/* 超强力覆盖列表样式 */
+.law-rag-content .law-compact-markdown ul,
+.law-rag-content .law-compact-markdown ol,
+.law-compact-markdown ul,
+.law-compact-markdown ol {
+  margin: 1px 0 !important;
+  margin-top: 1px !important;
+  margin-bottom: 1px !important;
+  padding: 0 0 0 16px !important;
+  list-style-position: outside !important;
+}
+
+.law-rag-content .law-compact-markdown li,
+.law-compact-markdown li {
+  margin: 0px 0 !important;
+  margin-top: 0px !important;
+  margin-bottom: 0px !important;
+  padding: 0 !important;
+  line-height: 1.2 !important;
+}
+
+/* 强力覆盖嵌套列表 */
+.law-compact-markdown li ul,
+.law-compact-markdown li ol {
+  margin: 1px 0 !important;
+  padding-left: 16px !important;
+}
+
+.law-compact-markdown li li {
+  margin: 0px 0 !important;
+}
+
+/* 强力覆盖列表项内的段落 */
+.law-compact-markdown li p {
+  margin: 0 !important;
+  padding: 0 !important;
+  display: inline !important;
+}
+
+/* 强力覆盖引用样式 */
+.law-compact-markdown blockquote {
+  margin: 3px 0 !important;
+  padding: 0 0 0 10px !important;
+  border-left: 3px solid #ddd !important;
+  color: #666 !important;
+  font-style: italic !important;
+}
+
+/* 强力覆盖代码样式 */
+.law-compact-markdown code {
+  background: #f4f4f4 !important;
+  padding: 1px 3px !important;
+  border-radius: 3px !important;
+  font-family: monospace !important;
+  font-size: 0.9em !important;
+  margin: 0 !important;
+}
+
+/* 强力覆盖预格式化文本 */
+.law-compact-markdown pre {
+  margin: 3px 0 !important;
+  padding: 6px !important;
+  background: #f4f4f4 !important;
+  border-radius: 4px !important;
+  overflow-x: auto !important;
+}
+
+.law-compact-markdown pre code {
+  background: none !important;
+  padding: 0 !important;
+}
+
+/* 强力移除所有可能造成大间距的元素 */
+.law-compact-markdown hr {
+  display: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.law-compact-markdown br {
+  display: none !important;
+}
+
+/* 强力覆盖表格样式 */
+.law-compact-markdown table {
+  margin: 3px 0 !important;
+  border-collapse: collapse !important;
+}
+
+.law-compact-markdown td,
+.law-compact-markdown th {
+  padding: 2px 6px !important;
+  border: 1px solid #ddd !important;
+  line-height: 1.3 !important;
+}
+
+/* 移除首尾元素的额外间距 */
+.law-compact-markdown > *:first-child {
+  margin-top: 0 !important;
+}
+
+.law-compact-markdown > *:last-child {
+  margin-bottom: 0 !important;
+}
+
+/* 强制所有子元素使用紧凑样式 */
+.law-compact-markdown * {
+  box-sizing: border-box !important;
+  word-wrap: break-word !important;
+  word-break: break-word !important;
+  overflow-wrap: break-word !important;
+}
+
 /* 底部输入区域 - 无边界设计 */
 .unified-input-container {
   background: transparent;
@@ -2463,4 +2766,225 @@ body {
 
 .reference-link-container {
   margin-top: 6px;
+}
+
+/* ========== 终极覆盖样式 - 解决法律文档间距问题 ========== */
+/* 超高优先级覆盖 - 针对所有可能的选择器组合 */
+.law-rag-content .law-compact-markdown *,
+.law-rag-content * .law-compact-markdown *,
+.law-compact-markdown *,
+div.law-rag-content div.law-compact-markdown * {
+  margin: 0 !important;
+  padding: 0 !important;
+  line-height: 1.2 !important;
+}
+
+/* 超高优先级 - 覆盖ReactMarkdown的默认样式 */
+.law-rag-content .law-compact-markdown p,
+.law-rag-content * .law-compact-markdown p,
+.law-compact-markdown p,
+div.law-rag-content div.law-compact-markdown p {
+  margin: 0 !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  padding: 0 !important;
+  line-height: 1.2 !important;
+  display: block !important;
+}
+
+/* 超高优先级 - 列表样式 */
+.law-rag-content .law-compact-markdown ul,
+.law-rag-content .law-compact-markdown ol,
+.law-rag-content * .law-compact-markdown ul,
+.law-rag-content * .law-compact-markdown ol,
+.law-compact-markdown ul,
+.law-compact-markdown ol,
+div.law-rag-content div.law-compact-markdown ul,
+div.law-rag-content div.law-compact-markdown ol {
+  margin: 0 !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  padding: 0 0 0 16px !important;
+  list-style-position: outside !important;
+}
+
+.law-rag-content .law-compact-markdown li,
+.law-rag-content * .law-compact-markdown li,
+.law-compact-markdown li,
+div.law-rag-content div.law-compact-markdown li {
+  margin: 0 !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  padding: 0 !important;
+  line-height: 1.2 !important;
+}
+
+/* 只在顶级相邻元素之间添加最小间距 */
+.law-compact-markdown > * + * {
+  margin-top: 2px !important;
+}
+
+/* 列表项之间的间距 */
+.law-compact-markdown li + li {
+  margin-top: 1px !important;
+}
+
+/* 标题样式 */
+.law-rag-content .law-compact-markdown h1,
+.law-rag-content .law-compact-markdown h2,
+.law-rag-content .law-compact-markdown h3,
+.law-rag-content .law-compact-markdown h4,
+.law-rag-content .law-compact-markdown h5,
+.law-rag-content .law-compact-markdown h6,
+.law-compact-markdown h1,
+.law-compact-markdown h2,
+.law-compact-markdown h3,
+.law-compact-markdown h4,
+.law-compact-markdown h5,
+.law-compact-markdown h6 {
+  margin: 0 !important;
+  margin-top: 4px !important;
+  margin-bottom: 2px !important;
+  padding: 0 !important;
+  line-height: 1.2 !important;
+  font-weight: bold !important;
+}
+
+/* ========== 超强力嵌套列表处理 ========== */
+/* 嵌套列表 - 所有可能的组合 */
+.law-rag-content .law-compact-markdown li ul,
+.law-rag-content .law-compact-markdown li ol,
+.law-rag-content * .law-compact-markdown li ul,
+.law-rag-content * .law-compact-markdown li ol,
+.law-compact-markdown li ul,
+.law-compact-markdown li ol,
+div.law-rag-content div.law-compact-markdown li ul,
+div.law-rag-content div.law-compact-markdown li ol {
+  margin: 0 !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  padding: 0 0 0 16px !important;
+}
+
+/* 嵌套列表项 */
+.law-rag-content .law-compact-markdown li li,
+.law-rag-content * .law-compact-markdown li li,
+.law-compact-markdown li li,
+div.law-rag-content div.law-compact-markdown li li {
+  margin: 0 !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  padding: 0 !important;
+  line-height: 1.2 !important;
+}
+
+/* 列表项内的段落 - 强制内联显示 */
+.law-rag-content .law-compact-markdown li p,
+.law-rag-content * .law-compact-markdown li p,
+.law-compact-markdown li p,
+div.law-rag-content div.law-compact-markdown li p {
+  margin: 0 !important;
+  padding: 0 !important;
+  display: inline !important;
+  line-height: 1.2 !important;
+}
+
+/* 列表项内的强调元素 */
+.law-rag-content .law-compact-markdown li strong,
+.law-rag-content .law-compact-markdown li em,
+.law-rag-content .law-compact-markdown li b,
+.law-compact-markdown li strong,
+.law-compact-markdown li em,
+.law-compact-markdown li b {
+  margin: 0 !important;
+  padding: 0 !important;
+  display: inline !important;
+}
+
+/* ========== 终极负边距方案 - 直接暴力覆盖！========== */
+/* 按照您的方式，直接针对 .law-rag-content */
+@media (min-width: 1025px) {
+  .law-rag-content ul,
+  .law-rag-content ol {
+    margin: -24px 0 !important;
+    padding-left: 20px !important;
+    line-height: 1.1 !important;
+  }
+
+  .law-rag-content li {
+    margin: -8px 0 !important;
+    line-height: 1.1 !important;
+  }
+
+  .law-rag-content p {
+    margin: -16px 0 !important;
+    line-height: 1.1 !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .law-rag-content ul,
+  .law-rag-content ol {
+    margin: -18px 0 !important;
+    padding-left: 18px !important;
+    line-height: 1.2 !important;
+  }
+
+  .law-rag-content li {
+    margin: -6px 0 !important;
+    line-height: 1.2 !important;
+  }
+
+  .law-rag-content p {
+    margin: -12px 0 !important;
+    line-height: 1.2 !important;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .law-rag-content ul,
+  .law-rag-content ol {
+    margin: -20px 0 !important;
+    padding-left: 19px !important;
+    line-height: 1.15 !important;
+  }
+
+  .law-rag-content li {
+    margin: -7px 0 !important;
+    line-height: 1.15 !important;
+  }
+
+  .law-rag-content p {
+    margin: -14px 0 !important;
+    line-height: 1.15 !important;
+  }
+}
+
+/* 嵌套列表特殊处理 */
+.law-rag-content li ul,
+.law-rag-content li ol {
+  margin: -12px 0 !important;
+  padding-left: 16px !important;
+}
+
+.law-rag-content li li {
+  margin: -4px 0 !important;
+}
+
+/* 标题 */
+.law-rag-content h1,
+.law-rag-content h2,
+.law-rag-content h3,
+.law-rag-content h4,
+.law-rag-content h5,
+.law-rag-content h6 {
+  margin: -10px 0 -6px 0 !important;
+  line-height: 1.1 !important;
+  font-weight: bold !important;
+}
+
+/* 列表项内的段落内联显示 */
+.law-rag-content li p {
+  margin: 0 !important;
+  display: inline !important;
 }

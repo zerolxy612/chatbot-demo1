@@ -1,6 +1,205 @@
 import React, { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 
+// 简单的Markdown解析器 - 纯CSS + 预处理方案
+const SimpleMarkdownRenderer = ({ children, searchResults = [], messageIndex }) => {
+  // 处理引用点击
+  const handleCitationClick = (citationId) => {
+    const result = searchResults.find(r => r.id === citationId);
+
+    // 构建唯一的引用元素ID，包含消息索引
+    const uniqueRefId = `citation-${messageIndex}-${citationId}`;
+    const refElement = document.getElementById(uniqueRefId);
+
+    if (result && result.url) {
+      // 如果有URL，先打开URL，然后滚动到对应的引用信息
+      window.open(result.url, '_blank');
+      if (refElement) {
+        refElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        refElement.style.backgroundColor = '#fff3cd';
+        setTimeout(() => {
+          refElement.style.backgroundColor = '';
+        }, 2000);
+      }
+    } else {
+      // 如果没有URL，只滚动到引用信息
+      if (refElement) {
+        refElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        refElement.style.backgroundColor = '#fff3cd';
+        setTimeout(() => {
+          refElement.style.backgroundColor = '';
+        }, 2000);
+      }
+    }
+  };
+
+  // 处理文本中的引用标记
+  const processTextWithCitations = (text) => {
+    if (typeof text !== 'string') return text;
+
+    // 先解码Unicode字符
+    text = text.replace(/\\u([0-9a-fA-F]{4})/g, (_, code) => {
+      return String.fromCharCode(parseInt(code, 16));
+    });
+
+    // 检查是否包含引用标记
+    if (!text.includes('[citation:')) {
+      return text;
+    }
+
+    // 分割文本，保留引用标记
+    const parts = text.split(/(\[citation:\d+\])/g);
+
+    return parts.map((part, index) => {
+      const citationMatch = part.match(/\[citation:(\d+)\]/);
+      if (citationMatch) {
+        const citationId = parseInt(citationMatch[1]);
+        const result = searchResults.find(r => r.id === citationId);
+
+        return (
+          <sup
+            key={`citation-${index}`}
+            onClick={() => handleCitationClick(citationId)}
+            style={{
+              color: result ? '#1976d2' : '#666',
+              cursor: 'pointer',
+              textDecoration: 'underline',
+              fontSize: '0.8em',
+              marginLeft: '2px',
+              fontWeight: 'bold',
+              opacity: result ? 1 : 0.7
+            }}
+          >
+            [{citationId}]
+          </sup>
+        );
+      }
+      return part;
+    });
+  };
+
+  // 预处理内容，移除所有可能的问题标签和格式
+  const preprocessContent = (content) => {
+    if (!content || typeof content !== 'string') return '';
+
+    return content
+      // 移除所有HTML标签
+      .replace(/<[^>]*>/g, '')
+      // 移除分割线标记
+      .replace(/---+/g, '')
+      .replace(/___+/g, '')
+      .replace(/\*\*\*+/g, '')
+      // 限制连续换行，最多保留两个
+      .replace(/\n{3,}/g, '\n\n')
+      // 移除行首行尾空白
+      .replace(/^\s+|\s+$/gm, '')
+      // 移除多余空格
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+  };
+
+  // 解析内容为结构化元素
+  const parseContent = (content) => {
+    const cleanContent = preprocessContent(content);
+    if (!cleanContent) return [];
+
+    const lines = cleanContent.split('\n');
+    const elements = [];
+    let listItems = [];
+    let listType = null;
+
+    const flushList = () => {
+      if (listItems.length > 0) {
+        const ListTag = listType === 'ol' ? 'ol' : 'ul';
+        elements.push(
+          <ListTag key={`list-${elements.length}`} className="simple-list">
+            {listItems}
+          </ListTag>
+        );
+        listItems = [];
+        listType = null;
+      }
+    };
+
+    lines.forEach((line, index) => {
+      const trimmed = line.trim();
+      if (!trimmed) return;
+
+      // 标题处理
+      if (trimmed.startsWith('#')) {
+        flushList();
+        const level = trimmed.match(/^#+/)[0].length;
+        const text = trimmed.replace(/^#+\s*/, '');
+        const HeadingTag = `h${Math.min(level, 6)}`;
+        elements.push(
+          React.createElement(HeadingTag, {
+            key: `heading-${index}`,
+            className: 'simple-heading'
+          }, processTextWithCitations(text))
+        );
+      }
+      // 无序列表处理
+      else if (trimmed.match(/^[-*+]\s/)) {
+        if (listType !== 'ul') {
+          flushList();
+          listType = 'ul';
+        }
+        const text = trimmed.replace(/^[-*+]\s*/, '');
+        listItems.push(
+          <li key={`li-${index}`} className="simple-list-item">
+            {processTextWithCitations(text)}
+          </li>
+        );
+      }
+      // 有序列表处理
+      else if (trimmed.match(/^\d+\.\s/)) {
+        if (listType !== 'ol') {
+          flushList();
+          listType = 'ol';
+        }
+        const text = trimmed.replace(/^\d+\.\s*/, '');
+        listItems.push(
+          <li key={`li-${index}`} className="simple-list-item">
+            {processTextWithCitations(text)}
+          </li>
+        );
+      }
+      // 引用处理
+      else if (trimmed.startsWith('>')) {
+        flushList();
+        const text = trimmed.replace(/^>\s*/, '');
+        elements.push(
+          <blockquote key={`quote-${index}`} className="simple-blockquote">
+            {processTextWithCitations(text)}
+          </blockquote>
+        );
+      }
+      // 普通段落处理
+      else {
+        flushList();
+        elements.push(
+          <div key={`paragraph-${index}`} className="simple-paragraph">
+            {processTextWithCitations(trimmed)}
+          </div>
+        );
+      }
+    });
+
+    // 处理最后的列表
+    flushList();
+
+    return elements;
+  };
+
+  const parsedElements = parseContent(children);
+
+  return (
+    <div className="simple-markdown-container">
+      {parsedElements}
+    </div>
+  );
+};
+
 // 自定义ReactMarkdown组件，处理引用链接（参考主界面实现）
 const LawMarkdownWithCitations = ({ children, searchResults = [], messageIndex }) => {
   // 处理引用点击
@@ -94,36 +293,29 @@ const LawMarkdownWithCitations = ({ children, searchResults = [], messageIndex }
   };
 
   return (
-    <div>
-      <ReactMarkdown
-        components={{
-          // 处理段落
-          p: ({ children }) => <p>{processContent(children)}</p>,
-          // 处理列表项
-          li: ({ children }) => <li>{processContent(children)}</li>,
-          // 处理标题
-          h1: ({ children }) => <h1>{processContent(children)}</h1>,
-          h2: ({ children }) => <h2>{processContent(children)}</h2>,
-          h3: ({ children }) => <h3>{processContent(children)}</h3>,
-          h4: ({ children }) => <h4>{processContent(children)}</h4>,
-          h5: ({ children }) => <h5>{processContent(children)}</h5>,
-          h6: ({ children }) => <h6>{processContent(children)}</h6>,
-          // 处理强调和加粗
-          em: ({ children }) => <em>{processContent(children)}</em>,
-          strong: ({ children }) => <strong>{processContent(children)}</strong>,
-          // 处理其他可能包含文本的元素
-          span: ({ children }) => <span>{processContent(children)}</span>,
-          div: ({ children }) => <div>{processContent(children)}</div>,
-          // 处理引用块
-          blockquote: ({ children }) => <blockquote>{processContent(children)}</blockquote>,
-          // 处理表格单元格
-          td: ({ children }) => <td>{processContent(children)}</td>,
-          th: ({ children }) => <th>{processContent(children)}</th>
-        }}
-      >
-        {children}
-      </ReactMarkdown>
-    </div>
+    <ReactMarkdown
+      components={{
+        // 只处理引用链接，其他样式交给CSS
+        p: ({ children }) => <p>{processContent(children)}</p>,
+        li: ({ children }) => <li>{processContent(children)}</li>,
+        h1: ({ children }) => <h1>{processContent(children)}</h1>,
+        h2: ({ children }) => <h2>{processContent(children)}</h2>,
+        h3: ({ children }) => <h3>{processContent(children)}</h3>,
+        h4: ({ children }) => <h4>{processContent(children)}</h4>,
+        h5: ({ children }) => <h5>{processContent(children)}</h5>,
+        h6: ({ children }) => <h6>{processContent(children)}</h6>,
+        strong: ({ children }) => <strong>{processContent(children)}</strong>,
+        em: ({ children }) => <em>{processContent(children)}</em>,
+        code: ({ children }) => <code>{processContent(children)}</code>,
+        td: ({ children }) => <td>{processContent(children)}</td>,
+        th: ({ children }) => <th>{processContent(children)}</th>,
+        // 移除问题标签
+        br: () => null,
+        hr: () => null
+      }}
+    >
+      {children}
+    </ReactMarkdown>
   );
 };
 
@@ -210,15 +402,32 @@ const filterLawMainContent = (content) => {
   // 过滤掉其他可能的标签（除了think标签）
   content = content.replace(/<\/?(?!think)[^>]+(>|$)/g, '');
 
+  // 特别处理可能造成大间距的标签
+  content = content.replace(/<hr\s*\/?>/gi, ''); // 移除 hr 标签
+  content = content.replace(/<br\s*\/?>/gi, ''); // 移除 br 标签
+  content = content.replace(/<div[^>]*>/gi, ''); // 移除 div 开始标签
+  content = content.replace(/<\/div>/gi, ''); // 移除 div 结束标签
+
   // 移除最外层的代码块标记（包括语言标识符）
   content = content.replace(/^```[a-zA-Z]*\n?/, '').replace(/\n?```$/g, '');
 
   // 移除所有剩余的代码块标记
   content = content.replace(/```[a-zA-Z]*\n?/g, '').replace(/\n?```/g, '');
 
-  // 清理多余的空行
-  content = content.replace(/\n\s*\n\s*\n/g, '\n\n');
+  // 清理多余的空行和空白内容
+  content = content.replace(/\n\s*\n+/g, '\n');
   content = content.replace(/^\s*\n/gm, '');
+
+  // 移除可能导致大间距的空白段落和列表项
+  content = content.replace(/^\s*[-*+]\s*$/gm, ''); // 移除空的列表项
+  content = content.replace(/^\s*#+\s*$/gm, ''); // 移除空的标题
+  content = content.replace(/^\s*>\s*$/gm, ''); // 移除空的引用
+
+  // 移除连续的空白字符
+  content = content.replace(/\s{3,}/g, ' ');
+
+  // 移除多余的换行符，但保持基本结构
+  content = content.replace(/\n{3,}/g, '\n\n'); // 最多保留两个连续换行
 
   return content.trim();
 };
@@ -495,8 +704,68 @@ function LawChatInterface({ onToggleInterface }) {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  // 暴力负边距大法 - 直接按您的方式！
+  const forceCompactStyles = () => {
+    setTimeout(() => {
+      const ragContent = document.querySelectorAll('.law-rag-content');
+      const screenWidth = window.innerWidth;
+
+      ragContent.forEach(container => {
+        // 根据屏幕尺寸设置不同的负边距
+        let ulMargin, liMargin, pMargin, lineHeight;
+
+        if (screenWidth >= 1025) {
+          // 桌面端 - 最大负边距
+          ulMargin = '-24px 0';
+          liMargin = '-8px 0';
+          pMargin = '-16px 0';
+          lineHeight = '1.1';
+        } else if (screenWidth <= 768) {
+          // 移动端
+          ulMargin = '-18px 0';
+          liMargin = '-6px 0';
+          pMargin = '-12px 0';
+          lineHeight = '1.2';
+        } else {
+          // 平板端
+          ulMargin = '-20px 0';
+          liMargin = '-7px 0';
+          pMargin = '-14px 0';
+          lineHeight = '1.15';
+        }
+
+        // 应用到所有子元素
+        const allElements = container.querySelectorAll('*');
+        allElements.forEach(element => {
+          if (element.tagName === 'UL' || element.tagName === 'OL') {
+            element.style.setProperty('margin', ulMargin, 'important');
+            element.style.setProperty('padding-left', '20px', 'important');
+            element.style.setProperty('line-height', lineHeight, 'important');
+          }
+
+          if (element.tagName === 'LI') {
+            element.style.setProperty('margin', liMargin, 'important');
+            element.style.setProperty('line-height', lineHeight, 'important');
+          }
+
+          if (element.tagName === 'P') {
+            if (element.closest('li')) {
+              // 列表项内的段落内联显示
+              element.style.setProperty('display', 'inline', 'important');
+              element.style.setProperty('margin', '0', 'important');
+            } else {
+              element.style.setProperty('margin', pMargin, 'important');
+              element.style.setProperty('line-height', lineHeight, 'important');
+            }
+          }
+        });
+      });
+    }, 100);
+  };
+
   useEffect(() => {
     scrollToBottom();
+    forceCompactStyles(); // 每次消息更新后强制应用样式
   }, [messages]);
 
   // 调用法律RAG API
@@ -759,9 +1028,11 @@ function LawChatInterface({ onToggleInterface }) {
                         <span className="law-rag-label">法律RAG咨询</span>
                       </div>
                       <div className="law-rag-content" data-streaming={message.isStreaming}>
-                        <LawMarkdownWithCitations searchResults={message.searchResults || []} messageIndex={index}>
-                          {message.mainContent || message.content}
-                        </LawMarkdownWithCitations>
+                        <div className="law-compact-markdown">
+                          <LawMarkdownWithCitations searchResults={message.searchResults || []} messageIndex={index}>
+                            {message.mainContent || message.content}
+                          </LawMarkdownWithCitations>
+                        </div>
                       </div>
                     </div>
                   )}
