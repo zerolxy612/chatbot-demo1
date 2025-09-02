@@ -1643,7 +1643,7 @@ function App() {
                           disabled={!inputValue.trim()}
                           className="send-btn primary"
                         >
-                          法律咨询
+                          RAG
                         </button>
                         {/* Multisearch按钮已移除 */}
                       </>
