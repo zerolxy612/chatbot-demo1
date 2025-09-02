@@ -2901,63 +2901,12 @@ div.law-rag-content div.law-compact-markdown li p {
   display: inline !important;
 }
 
-/* ========== 终极负边距方案 - 直接暴力覆盖！========== */
-/* 按照您的方式，直接针对 .law-rag-content */
-@media (min-width: 1025px) {
-  .law-rag-content ul,
-  .law-rag-content ol {
-    margin: -24px 0 !important;
-    padding-left: 20px !important;
-    line-height: 1.1 !important;
-  }
-
-  .law-rag-content li {
-    margin: -8px 0 !important;
-    line-height: 1.1 !important;
-  }
-
-  .law-rag-content p {
-    margin: -16px 0 !important;
-    line-height: 1.1 !important;
-  }
-}
-
-@media (max-width: 768px) {
-  .law-rag-content ul,
-  .law-rag-content ol {
-    margin: -18px 0 !important;
-    padding-left: 18px !important;
-    line-height: 1.2 !important;
-  }
-
-  .law-rag-content li {
-    margin: -6px 0 !important;
-    line-height: 1.2 !important;
-  }
-
-  .law-rag-content p {
-    margin: -12px 0 !important;
-    line-height: 1.2 !important;
-  }
-}
-
-@media (min-width: 769px) and (max-width: 1024px) {
-  .law-rag-content ul,
-  .law-rag-content ol {
-    margin: -20px 0 !important;
-    padding-left: 19px !important;
-    line-height: 1.15 !important;
-  }
-
-  .law-rag-content li {
-    margin: -7px 0 !important;
-    line-height: 1.15 !important;
-  }
-
-  .law-rag-content p {
-    margin: -14px 0 !important;
-    line-height: 1.15 !important;
-  }
+/* ========== 统一负边距方案 - 按您的要求 ========== */
+.law-rag-content ul,
+.law-rag-content ol {
+  margin: -18px 0 !important;
+  padding-left: 20px !important;
+  line-height: 1.1 !important;
 }
 
 /* 嵌套列表特殊处理 */
