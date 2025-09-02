@@ -16,7 +16,7 @@ function App() {
   const [isLawInterface, setIsLawInterface] = useState(false); // Law界面切换状态
   const messagesEndRef = useRef(null);
 
-  // 界面切换函数
+  // 界面切换函数11
   const toggleInterface = () => {
     setIsNewInterface(!isNewInterface);
     setIsLawInterface(false); // 确保law界面关闭
