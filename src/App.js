@@ -1087,67 +1087,7 @@ function App() {
     }
   };
 
-  // 法律多源检索API调用
-  const callLawMultisearchApi = async () => {
-    if (!inputValue.trim() || isLawRagLoading || isLawMultisearchLoading) return;
-
-    const userMessage = { role: 'user', content: inputValue };
-    const currentInput = inputValue;
-    setMessages(prev => [...prev, userMessage]);
-    setInputValue('');
-    setIsLawMultisearchLoading(true);
-
-    // 创建中止控制器
-    abortControllerRef.current = new AbortController();
-
-    try {
-      const response = await fetch('/api/law/multisearch/multisearch', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          query: currentInput,
-          generate_overview: false,
-          streaming: false,
-          recalls: { legal_hk_ordinance: {}, legal_hk_case: {}, legal_google: {} }
-        }),
-        signal: abortControllerRef.current.signal
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      let searchResults = [];
-
-      if (data.results?.reference && Array.isArray(data.results.reference)) {
-        searchResults = data.results.reference;
-      } else if (data.reference && Array.isArray(data.reference)) {
-        searchResults = data.reference;
-      }
-
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: searchResults.length > 0 ?
-          `找到 ${searchResults.length} 个相关法律资料` :
-          '未找到相关法律资料',
-        isLawMultisearchResponse: true,
-        searchResults: searchResults,
-        searchQuery: currentInput
-      }]);
-
-    } catch (error) {
-      console.error('法律多源检索API调用失败:', error);
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: `❌ 法律检索服务暂时不可用: ${error.message}`,
-        isError: true
-      }]);
-    } finally {
-      setIsLawMultisearchLoading(false);
-      abortControllerRef.current = null; // 清理 AbortController
-    }
-  };
+  // 法律多源检索API调用 - 已移除，法律界面不再使用multisearch
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -1323,6 +1263,7 @@ function App() {
                         )}
                       </div>
                     ) : message.isLawMultisearchResponse ? (
+                      // 法律多源检索响应显示 - 已移除，法律界面不再使用
                       <div className="law-multisearch-response">
                         <div className="law-multisearch-header">
                           <span className="law-multisearch-icon">🔍</span>
@@ -1702,15 +1643,9 @@ function App() {
                           disabled={!inputValue.trim()}
                           className="send-btn primary"
                         >
-                          RAG
+                          法律咨询
                         </button>
-                        <button
-                          onClick={callLawMultisearchApi}
-                          disabled={!inputValue.trim()}
-                          className="send-btn secondary"
-                        >
-                          Multisearch
-                        </button>
+                        {/* Multisearch按钮已移除 */}
                       </>
                     )}
                   </>

@@ -33,14 +33,19 @@ export default async function handler(req, res) {
 
     console.log('Law RAG API - About to call external API');
 
-    // 转发请求到实际的Law RAG API
-    const targetUrl = 'https://lexihkrag-test.hkgai.asia/v1/chat/completions';
+    // 转发请求到OneAPI的chat/completions接口
+    const targetUrl = 'https://oneapi.hkgai.net/v1/chat/completions';
     console.log('Law RAG API - Target URL:', targetUrl);
 
     const response = await fetch(targetUrl, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer sk-OsexRhsOdqg5yb9i8c637435AeF1445f9c6cD2717a95167a',
+        'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
+        'Accept': '*/*',
+        'Host': 'oneapi.hkgai.net',
+        'Connection': 'keep-alive'
       },
       body: JSON.stringify(req.body)
     });
