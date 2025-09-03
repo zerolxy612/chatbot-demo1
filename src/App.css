@@ -2144,6 +2144,36 @@ body {
   padding: 24px 32px 32px;
 }
 
+/* 普通RAG（主聊天）仅调整 h3、ol、hr 的基础间距与相邻收紧 */
+.main-content.compact h3 {
+  margin: 8px 0 6px 0 !important;
+  line-height: 1.3 !important;
+}
+
+.main-content.compact ol {
+  margin: 4px 0 !important;
+  padding-left: 20px !important;
+}
+
+.main-content.compact hr {
+  margin: 4px 0 !important;
+}
+
+/* 邻接关系：h3 后接 ol 更紧凑 */
+.main-content.compact h3 + ol {
+  margin-top: 2px !important;
+}
+
+/* 邻接关系：ol 后接 hr 更紧凑 */
+.main-content.compact ol + hr {
+  margin-top: 2px !important;
+}
+
+/* 邻接关系：hr 后接 h3 更紧凑 */
+.main-content.compact hr + h3 {
+  margin-top: 4px !important;
+}
+
 .input-wrapper {
   max-width: 768px;
   margin: 0 auto;
