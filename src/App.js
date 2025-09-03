@@ -55,152 +55,196 @@ function App() {
     scrollToBottom();
   }, [messages]);
 
-  // 从搜索结果中提取引用信息
-  const extractSearchResults = (content) => {
-    const searchResults = [];
+  // 流式搜索结果解析器 - 使用状态机处理 <search_results> 区间
+  const createSearchResultsParser = () => {
+    let state = 'OUTSIDE'; // 'OUTSIDE' | 'INSIDE' | 'COMPLETE'
+    let buffer = '';
+    let searchResults = new Map(); // 使用 Map 以 doc_index 为 key 去重
 
-    // 提取 <search_results> 标签内的内容
-    const searchResultsMatch = content.match(/<search_results>([\s\S]*?)<\/search_results>/);
-    if (searchResultsMatch) {
-      const searchData = searchResultsMatch[1].trim();
-      console.log('=== SEARCH_RESULTS 前端提取的原始数据 ===');
-      console.log('数据来源: https://oneapi.hkgai.net/v1/chat/completions 响应中的 <search_results> 标签');
-      console.log('原始搜索数据长度:', searchData.length);
-      console.log('原始搜索数据:', searchData);
+    // 解码Unicode字符的函数
+    const decodeText = (text) => {
+      if (!text) return text;
+      return text.replace(/\\u([0-9a-fA-F]{4})/g, (_, code) => {
+        return String.fromCharCode(parseInt(code, 16));
+      });
+    };
 
-      // 尝试解析并显示每个原始JSON对象
+    // 处理单个搜索结果JSON对象
+    const processSearchResult = (jsonStr) => {
       try {
-        const lines = searchData.split('\n').filter(line => line.trim());
-        console.log('分割后的行数:', lines.length);
-        lines.forEach((line, index) => {
-          console.log(`原始行 ${index + 1}:`, line);
-          try {
-            const parsed = JSON.parse(line);
-            console.log(`解析后的对象 ${index + 1}:`, parsed);
-            console.log(`  - doc_index: ${parsed.doc_index}`);
-            console.log(`  - title: ${parsed.title}`);
-            console.log(`  - source: ${parsed.source}`);
-            console.log(`  - url: ${parsed.url}`);
-          } catch (e) {
-            console.log(`行 ${index + 1} 解析失败:`, e.message);
-          }
-        });
-      } catch (e) {
-        console.log('整体解析失败:', e.message);
-      }
+        // 第一层解析：解析转义后的JSON字符串
+        const unescapedJson = JSON.parse(jsonStr);
 
-      // 解码Unicode字符的函数
-      const decodeText = (text) => {
-        if (!text) return text;
-        const originalText = text;
-        const decodedText = text.replace(/\\u([0-9a-fA-F]{4})/g, (_, code) => {
-          return String.fromCharCode(parseInt(code, 16));
-        });
-
-        // 如果有Unicode解码，打印调试信息
-        if (originalText !== decodedText) {
-          console.log('Unicode解码:', {
-            原始: originalText.substring(0, 100) + '...',
-            解码后: decodedText.substring(0, 100) + '...'
-          });
-        }
-
-        return decodedText;
-      };
-
-      try {
-        // 尝试解析为JSON数组
-        const results = JSON.parse(`[${searchData}]`);
-        if (Array.isArray(results)) {
-          results.forEach(result => {
-            if (result && result.doc_index) {
-              console.log('=== 原始搜索结果数据 ===', {
-                doc_index: result.doc_index,
-                title_原始: result.title,
-                snippet_原始: result.snippet || result.result,
-                source_原始: result.source,
-                url_原始: result.url,
-                score: result.score
-              });
-
-              searchResults.push({
-                id: result.doc_index,
-                title: decodeText(result.title) || '搜索结果',
-                snippet: decodeText(result.snippet || result.result) || '',
-                url: result.url || '',
-                source: decodeText(result.source) || 'Unknown',
-                score: result.score || 0
-              });
-            }
-          });
-        }
-      } catch (e) {
-        console.log('JSON数组解析失败，尝试逐行解析JSON对象');
-
-        // 按行分割，每行可能是一个JSON对象
-        const lines = searchData.split('\n').filter(line => line.trim());
-
-        lines.forEach(line => {
-          try {
-            const result = JSON.parse(line);
-            if (result && result.doc_index) {
-              searchResults.push({
-                id: result.doc_index,
-                title: decodeText(result.title) || '搜索结果',
-                snippet: decodeText(result.snippet || result.result) || '',
-                url: result.url || '',
-                source: decodeText(result.source) || 'Unknown',
-                score: result.score || 0
-              });
-            }
-          } catch (lineError) {
-            console.warn('解析行失败:', line, lineError);
-          }
-        });
-
-        // 如果还是失败，尝试正则表达式提取
-        if (searchResults.length === 0) {
-          console.log('尝试正则表达式提取');
-
-          // 使用正则表达式匹配JSON对象
-          const jsonMatches = searchData.match(/\{[^}]*"doc_index"[^}]*\}/g);
-          if (jsonMatches) {
-            jsonMatches.forEach(match => {
-              try {
-                const result = JSON.parse(match);
-                if (result && result.doc_index) {
-                  searchResults.push({
-                    id: result.doc_index,
-                    title: decodeText(result.title) || '搜索结果',
-                    snippet: decodeText(result.snippet || result.result) || '',
-                    url: result.url || '',
-                    source: decodeText(result.source) || 'Unknown',
-                    score: result.score || 0
-                  });
-                }
-              } catch (matchError) {
-                console.warn('正则匹配解析失败:', match, matchError);
-              }
+        // 第二层解析：解析真正的搜索结果对象
+        if (typeof unescapedJson === 'string') {
+          const result = JSON.parse(unescapedJson);
+          if (result && result.doc_index) {
+            searchResults.set(result.doc_index, {
+              id: result.doc_index,
+              title: decodeText(result.title) || '搜索结果',
+              snippet: decodeText(result.snippet || result.result) || '',
+              url: result.url || '',
+              source: decodeText(result.source || result.kb) || 'Unknown',
+              score: result.score || 0
             });
           }
+        } else if (unescapedJson && unescapedJson.doc_index) {
+          // 直接是对象的情况
+          searchResults.set(unescapedJson.doc_index, {
+            id: unescapedJson.doc_index,
+            title: decodeText(unescapedJson.title) || '搜索结果',
+            snippet: decodeText(unescapedJson.snippet || unescapedJson.result) || '',
+            url: unescapedJson.url || '',
+            source: decodeText(unescapedJson.source || unescapedJson.kb) || 'Unknown',
+            score: unescapedJson.score || 0
+          });
+        }
+      } catch (e) {
+        console.warn('❌ 解析搜索结果失败:', e.message, '原始JSON:', jsonStr.substring(0, 100));
+      }
+    };
+
+    // 尝试从缓冲区中提取完整的JSON对象
+    const extractJsonObjects = () => {
+      let startIndex = 0;
+
+      while (startIndex < buffer.length) {
+        // 查找下一个 JSON 对象的开始
+        const jsonStart = buffer.indexOf('{', startIndex);
+        if (jsonStart === -1) break;
+
+        // 使用括号匹配找到完整的JSON对象
+        let braceCount = 0;
+        let jsonEnd = -1;
+        let inString = false;
+        let escaped = false;
+
+        for (let i = jsonStart; i < buffer.length; i++) {
+          const char = buffer[i];
+
+          if (escaped) {
+            escaped = false;
+            continue;
+          }
+
+          if (char === '\\' && inString) {
+            escaped = true;
+            continue;
+          }
+
+          if (char === '"') {
+            inString = !inString;
+            continue;
+          }
+
+          if (!inString) {
+            if (char === '{') {
+              braceCount++;
+            } else if (char === '}') {
+              braceCount--;
+              if (braceCount === 0) {
+                jsonEnd = i;
+                break;
+              }
+            }
+          }
+        }
+
+        if (jsonEnd !== -1) {
+          // 找到完整的JSON对象
+          const jsonStr = buffer.substring(jsonStart, jsonEnd + 1);
+          processSearchResult(jsonStr);
+          startIndex = jsonEnd + 1;
+        } else {
+          // 没有找到完整的JSON对象，等待更多数据
+          break;
         }
       }
 
-      console.log('=== 最终解析出的搜索结果 ===');
-      console.log('搜索结果数量:', searchResults.length);
-      searchResults.forEach((result, index) => {
-        console.log(`结果 ${index + 1}:`, {
-          id: result.id,
-          title: result.title,
-          snippet: result.snippet ? result.snippet.substring(0, 100) + '...' : 'N/A',
-          source: result.source,
-          url: result.url,
-          score: result.score
-        });
-      });
-    }
+      // 清理已处理的部分
+      if (startIndex > 0) {
+        buffer = buffer.substring(startIndex);
+      }
+    };
 
-    return searchResults;
+    return {
+      // 添加新的内容片段
+      addContent: (content) => {
+        if (state === 'COMPLETE') return;
+
+        let remainingContent = content;
+
+        // 循环处理，直到没有更多的搜索结果标签
+        while (remainingContent && state !== 'COMPLETE') {
+          if (state === 'OUTSIDE') {
+            // 查找搜索结果开始标签
+            const startTagIndex = remainingContent.indexOf('<search_results>');
+            if (startTagIndex !== -1) {
+              state = 'INSIDE';
+              const afterStartTag = startTagIndex + '<search_results>'.length;
+              remainingContent = remainingContent.substring(afterStartTag);
+              continue; // 继续处理剩余内容
+            } else {
+              break; // 没有开始标签，退出循环
+            }
+          } else if (state === 'INSIDE') {
+            // 查找搜索结果结束标签
+            const endTagIndex = remainingContent.indexOf('</search_results>');
+            if (endTagIndex !== -1) {
+              // 添加结束标签之前的内容到缓冲区
+              buffer += remainingContent.substring(0, endTagIndex);
+              state = 'COMPLETE';
+
+              // 处理缓冲区中的所有JSON对象
+              extractJsonObjects();
+
+              // 更新剩余内容（结束标签之后的部分）
+              remainingContent = remainingContent.substring(endTagIndex + '</search_results>'.length);
+
+              // 如果还有剩余内容，可能包含新的搜索结果区间
+              if (remainingContent.includes('<search_results>')) {
+                state = 'OUTSIDE'; // 重置状态，准备处理下一个搜索结果区间
+                continue;
+              } else {
+                break; // 没有更多搜索结果，退出循环
+              }
+            } else {
+              // 没有结束标签，将所有内容添加到缓冲区
+              buffer += remainingContent;
+              break; // 等待更多数据
+            }
+          }
+        }
+
+        // 如果在搜索结果区间内，尝试提取JSON对象
+        if (state === 'INSIDE') {
+          extractJsonObjects();
+        }
+      },
+
+      // 获取当前解析出的搜索结果
+      getResults: () => {
+        // 按 doc_index 排序返回
+        return Array.from(searchResults.values()).sort((a, b) => a.id - b.id);
+      },
+
+      // 获取解析状态
+      getState: () => state,
+
+      // 重置解析器
+      reset: () => {
+        state = 'OUTSIDE';
+        buffer = '';
+        searchResults.clear();
+      }
+    };
+  };
+
+  // 兼容旧版本的 extractSearchResults 函数（用于非流式场景）
+  const extractSearchResults = (content) => {
+    const parser = createSearchResultsParser();
+    parser.addContent(content);
+    return parser.getResults();
   };
 
   // 内容解析函数 - 分离think内容和正文内容
@@ -236,6 +280,8 @@ function App() {
       searchResults: searchResults
     };
   };
+
+
 
   // 解码Unicode字符
   const decodeUnicodeContent = (content) => {
@@ -321,21 +367,46 @@ function App() {
         msg.id === tempMessageId ? assistantMessage : msg
       ));
 
+      let sseBuffer = ''; // SSE缓冲区，处理跨read()的半行问题
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
+        // 将新数据添加到缓冲区
+        sseBuffer += decoder.decode(value, { stream: true });
 
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6);
-            if (data === '[DONE]') {
-              break;
+        // 按SSE规范处理事件边界（\n\n分隔事件，\n分隔行）
+        const events = sseBuffer.split('\n\n');
+
+        // 保留最后一个可能不完整的事件
+        sseBuffer = events.pop() || '';
+
+        // 处理完整的事件
+        for (const event of events) {
+          if (!event.trim()) continue;
+
+          // 处理事件中的多条data行
+          const lines = event.split('\n');
+          let eventData = '';
+
+          for (const line of lines) {
+            const trimmedLine = line.trim();
+            if (trimmedLine.startsWith('data:')) {
+              // 提取data内容，处理可能的前缀空格
+              const dataContent = trimmedLine.slice(5).trim();
+              if (dataContent === '[DONE]') {
+                break;
+              }
+              // 多条data行需要拼接
+              eventData += dataContent;
             }
+          }
+
+          // 解析拼接后的完整JSON
+          if (eventData) {
             try {
-              const parsed = JSON.parse(data);
+              const parsed = JSON.parse(eventData);
               if (parsed.choices && parsed.choices[0] && parsed.choices[0].delta && parsed.choices[0].delta.content) {
                 // 累积原始内容
                 assistantMessage.rawContent += parsed.choices[0].delta.content;
@@ -352,7 +423,7 @@ function App() {
                 ));
               }
             } catch (e) {
-              // Ignore parsing errors for incomplete JSON
+              console.warn('❌ 普通聊天SSE JSON解析失败:', e.message, '原始数据:', eventData.substring(0, 100));
             }
           }
         }

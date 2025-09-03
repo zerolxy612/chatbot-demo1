@@ -122,54 +122,7 @@ const LawMarkdownWithCitations = ({ children, searchResults = [] }) => {
   );
 };
 
-// 解析法律RAG内容的函数 - 分离think内容、搜索结果和正文内容
-const parseLawRagContent = (content) => {
-  if (!content) return { thinkContent: '', mainContent: '', searchResults: [] };
 
-  // 如果内容以 <think> 开头但还没有结束标签，暂时不显示任何内容
-  if (content.startsWith('<think>') && !content.includes('</think>')) {
-    return { thinkContent: '', mainContent: '', searchResults: [] };
-  }
-
-  // 提取搜索结果（支持不完整的标签）
-  const searchResults = extractLawSearchResults(content);
-
-  // 查找<think>标签的位置
-  const thinkIndex = content.indexOf('<think>');
-  if (thinkIndex === -1) {
-    // 没有think标签，直接过滤其他内容
-    return {
-      thinkContent: '',
-      mainContent: filterLawMainContent(content),
-      searchResults: searchResults
-    };
-  }
-
-  // 从<think>开始截取内容
-  content = content.substring(thinkIndex);
-
-  // 提取think内容
-  const thinkMatch = content.match(/<think>([\s\S]*?)<\/think>/);
-  const thinkContent = thinkMatch ? thinkMatch[1].trim() : '';
-
-  // 提取think标签后的内容
-  const afterThink = content.replace(/<think>[\s\S]*?<\/think>/, '');
-  const mainContent = filterLawMainContent(afterThink);
-
-  console.log('法律RAG - 解析结果:', {
-    原始内容长度: content.length,
-    thinkContent: thinkContent.length,
-    mainContent: mainContent.length,
-    searchResults: searchResults.length,
-    原始内容前100字符: content.substring(0, 100)
-  });
-
-  return {
-    thinkContent,
-    mainContent,
-    searchResults
-  };
-};
 
 // 解码Unicode字符
 const decodeLawUnicodeContent = (content) => {
@@ -218,9 +171,11 @@ const filterLawMainContent = (content) => {
   return content.trim();
 };
 
-// 提取法律搜索结果的函数（参考主界面的实现）
-const extractLawSearchResults = (content) => {
-  const searchResults = [];
+// 流式法律搜索结果解析器 - 使用状态机处理 <search_results> 区间
+const createLawSearchResultsParser = () => {
+  let state = 'OUTSIDE'; // 'OUTSIDE' | 'INSIDE' | 'COMPLETE'
+  let buffer = '';
+  let searchResults = new Map(); // 使用 Map 以 doc_index 为 key 去重
 
   // 解码Unicode字符的函数
   const decodeText = (text) => {
@@ -230,246 +185,223 @@ const extractLawSearchResults = (content) => {
     });
   };
 
-  // 首先尝试提取完整的 <search_results> 标签内容
-  const searchResultsMatch = content.match(/<search_results>([\s\S]*?)<\/search_results>/);
-  if (searchResultsMatch) {
-    const searchData = searchResultsMatch[1].trim();
-    console.log('法律RAG - 找到完整搜索结果数据:', searchData.substring(0, 200) + '...');
+  // 处理单个搜索结果JSON对象
+  const processSearchResult = (jsonStr) => {
+    try {
+      // 第一层解析：解析转义后的JSON字符串
+      const unescapedJson = JSON.parse(jsonStr);
 
-    // 检查是否是连续的JSON对象（没有换行符分隔）
-    if (searchData.includes('}{')) {
-      console.log('法律RAG - 检测到连续JSON对象，使用 }{ 分割...');
-      const separatedJson = searchData.replace(/\}\{/g, '}\n{');
-      const jsonLines = separatedJson.split('\n').filter(line => line.trim());
-
-      jsonLines.forEach((line, index) => {
-        try {
-          const result = JSON.parse(line);
-          if (result && result.doc_index) {
-            searchResults.push({
-              id: result.doc_index,
-              title: decodeText(result.title) || '法律文档',
-              snippet: decodeText(result.snippet || result.result) || '',
-              url: result.url || '',
-              source: decodeText(result.source) || 'Unknown',
-              score: result.score || 0
-            });
-            console.log(`✅ 成功解析JSON第${index + 1}个:`, result.doc_index, decodeText(result.title));
-          }
-        } catch (jsonError) {
-          console.warn(`❌ 解析JSON第${index + 1}个失败:`, jsonError.message);
-          console.log('失败的JSON前100字符:', line.substring(0, 100));
-        }
-      });
-    } else {
-      // 尝试其他解析方法
-      try {
-        // 尝试解析为JSON数组
-        const results = JSON.parse(`[${searchData}]`);
-        if (Array.isArray(results)) {
-          results.forEach(result => {
-            if (result && result.doc_index) {
-              searchResults.push({
-                id: result.doc_index,
-                title: decodeText(result.title) || '法律文档',
-                snippet: decodeText(result.snippet || result.result) || '',
-                url: result.url || '',
-                source: decodeText(result.source) || 'Unknown',
-                score: result.score || 0
-              });
-            }
+      // 第二层解析：解析真正的搜索结果对象
+      if (typeof unescapedJson === 'string') {
+        const result = JSON.parse(unescapedJson);
+        if (result && result.doc_index) {
+          searchResults.set(result.doc_index, {
+            id: result.doc_index,
+            title: decodeText(result.title) || '法律文档',
+            snippet: decodeText(result.snippet || result.result) || '',
+            url: result.url || '',
+            source: decodeText(result.source || result.kb) || 'Unknown',
+            score: result.score || 0
           });
         }
-      } catch (e) {
-        // JSON数组解析失败，尝试逐行解析JSON对象
-        const lines = searchData.split('\n').filter(line => line.trim());
-
-        lines.forEach(line => {
-          try {
-            const result = JSON.parse(line);
-            if (result && result.doc_index) {
-              searchResults.push({
-                id: result.doc_index,
-                title: decodeText(result.title) || '法律文档',
-                snippet: decodeText(result.snippet || result.result) || '',
-                url: result.url || '',
-                source: decodeText(result.source) || 'Unknown',
-                score: result.score || 0
-              });
-            }
-          } catch (lineError) {
-            console.warn('解析法律搜索结果行失败:', line, lineError);
-          }
+      } else if (unescapedJson && unescapedJson.doc_index) {
+        // 直接是对象的情况
+        searchResults.set(unescapedJson.doc_index, {
+          id: unescapedJson.doc_index,
+          title: decodeText(unescapedJson.title) || '法律文档',
+          snippet: decodeText(unescapedJson.snippet || unescapedJson.result) || '',
+          url: unescapedJson.url || '',
+          source: decodeText(unescapedJson.source || unescapedJson.kb) || 'Unknown',
+          score: unescapedJson.score || 0
         });
       }
+    } catch (e) {
+      console.warn('❌ 法律RAG解析搜索结果失败:', e.message, '原始JSON:', jsonStr.substring(0, 100));
     }
-  } else {
-    // 如果没有找到完整的标签，尝试处理不完整的搜索结果（流式数据）
-    const incompleteMatch = content.match(/<search_results>([\s\S]*?)$/);
-    if (incompleteMatch) {
-      const searchData = incompleteMatch[1].trim();
-      console.log('法律RAG - 处理流式搜索结果数据:', searchData.substring(0, 200) + '...');
+  };
 
-      // 方法1：尝试逐行解析JSON对象（如果有换行符）
-      const lines = searchData.split('\n').filter(line => line.trim());
+  // 尝试从缓冲区中提取完整的JSON对象
+  const extractJsonObjects = () => {
+    let startIndex = 0;
 
-      if (lines.length > 1) {
-        // 有换行符，按行解析
-        lines.forEach(line => {
-          try {
-            const result = JSON.parse(line);
-            if (result && result.doc_index) {
-              searchResults.push({
-                id: result.doc_index,
-                title: decodeText(result.title) || '法律文档',
-                snippet: decodeText(result.snippet || result.result) || '',
-                url: result.url || '',
-                source: decodeText(result.source) || 'Unknown',
-                score: result.score || 0
-              });
-            }
-          } catch (lineError) {
-            console.warn('解析流式搜索结果行失败:', line, lineError);
-          }
-        });
-      } else {
-        // 方法2：没有换行符，可能是连续的JSON对象，需要手动分割
-        console.log('法律RAG - 检测到连续JSON对象，尝试手动分割...');
+    while (startIndex < buffer.length) {
+      // 查找下一个 JSON 对象的开始
+      const jsonStart = buffer.indexOf('{', startIndex);
+      if (jsonStart === -1) break;
 
-        // 先尝试简单的 }{ 分割方法
-        if (searchData.includes('}{')) {
-          console.log('法律RAG - 使用 }{ 分割方法...');
-          const separatedJson = searchData.replace(/\}\{/g, '}\n{');
-          const jsonLines = separatedJson.split('\n').filter(line => line.trim());
-
-          jsonLines.forEach((line, index) => {
-            try {
-              const result = JSON.parse(line);
-              if (result && result.doc_index) {
-                searchResults.push({
-                  id: result.doc_index,
-                  title: decodeText(result.title) || '法律文档',
-                  snippet: decodeText(result.snippet || result.result) || '',
-                  url: result.url || '',
-                  source: decodeText(result.source) || 'Unknown',
-                  score: result.score || 0
-                });
-                console.log(`成功解析连续JSON第${index + 1}个:`, result.doc_index, decodeText(result.title));
-              }
-            } catch (jsonError) {
-              console.warn(`解析连续JSON第${index + 1}个失败:`, jsonError.message);
-              console.log('失败的JSON内容前100字符:', line.substring(0, 100));
-            }
-          });
-        }
-
-        // 如果 }{ 分割方法没有成功，再尝试手动大括号匹配
-        if (searchResults.length === 0) {
-          console.log('法律RAG - }{ 分割失败，尝试手动大括号匹配...');
-
-          let braceCount = 0;
-        let currentJson = '';
-        let inJson = false;
-
-        for (let i = 0; i < searchData.length; i++) {
-          const char = searchData[i];
-
-          if (char === '{') {
-            if (!inJson) {
-              inJson = true;
-              currentJson = '';
-            }
-            braceCount++;
-            currentJson += char;
-          } else if (char === '}' && inJson) {
-            braceCount--;
-            currentJson += char;
-
-            if (braceCount === 0) {
-              // 完整的JSON对象
-              try {
-                const result = JSON.parse(currentJson);
-                if (result && result.doc_index) {
-                  searchResults.push({
-                    id: result.doc_index,
-                    title: decodeText(result.title) || '法律文档',
-                    snippet: decodeText(result.snippet || result.result) || '',
-                    url: result.url || '',
-                    source: decodeText(result.source) || 'Unknown',
-                    score: result.score || 0
-                  });
-                }
-              } catch (parseError) {
-                console.warn('手动分割JSON解析失败:', currentJson.substring(0, 100) + '...', parseError);
-              }
-              inJson = false;
-              currentJson = '';
-            }
-          } else if (inJson) {
-            currentJson += char;
-          }
-        }
-        }
-      }
-    }
-
-    // 额外处理：直接在内容中查找JSON对象（以防标签不完整）
-    if (searchResults.length === 0 && content.includes('"doc_index"')) {
-      console.log('法律RAG - 尝试手动解析连续JSON对象...');
-
-      // 手动解析大括号，处理连续的JSON对象（无换行符分隔）
+      // 使用括号匹配找到完整的JSON对象
       let braceCount = 0;
-      let currentJson = '';
-      let inJson = false;
+      let jsonEnd = -1;
+      let inString = false;
+      let escaped = false;
 
-      for (let i = 0; i < content.length; i++) {
-        const char = content[i];
+      for (let i = jsonStart; i < buffer.length; i++) {
+        const char = buffer[i];
 
-        if (char === '{') {
-          if (!inJson) {
-            inJson = true;
-            currentJson = '';
-          }
-          braceCount++;
-          currentJson += char;
-        } else if (char === '}' && inJson) {
-          braceCount--;
-          currentJson += char;
+        if (escaped) {
+          escaped = false;
+          continue;
+        }
 
-          if (braceCount === 0) {
-            // 完整的JSON对象
-            try {
-              const result = JSON.parse(currentJson);
-              if (result && result.doc_index) {
-                console.log(`法律RAG - 成功解析JSON对象 ${result.doc_index}:`, decodeText(result.title));
-                searchResults.push({
-                  id: result.doc_index,
-                  title: decodeText(result.title) || '法律文档',
-                  snippet: decodeText(result.snippet || result.result) || '',
-                  url: result.url || '',
-                  source: decodeText(result.source) || 'Unknown',
-                  score: result.score || 0
-                });
-              }
-            } catch (parseError) {
-              console.warn('手动解析JSON失败:', parseError.message);
-              console.warn('失败的JSON前100字符:', currentJson.substring(0, 100) + '...');
+        if (char === '\\' && inString) {
+          escaped = true;
+          continue;
+        }
+
+        if (char === '"') {
+          inString = !inString;
+          continue;
+        }
+
+        if (!inString) {
+          if (char === '{') {
+            braceCount++;
+          } else if (char === '}') {
+            braceCount--;
+            if (braceCount === 0) {
+              jsonEnd = i;
+              break;
             }
-            inJson = false;
-            currentJson = '';
           }
-        } else if (inJson) {
-          currentJson += char;
         }
       }
+
+      if (jsonEnd !== -1) {
+        // 找到完整的JSON对象
+        const jsonStr = buffer.substring(jsonStart, jsonEnd + 1);
+        processSearchResult(jsonStr);
+        startIndex = jsonEnd + 1;
+      } else {
+        // 没有找到完整的JSON对象，等待更多数据
+        break;
+      }
     }
+
+    // 清理已处理的部分
+    if (startIndex > 0) {
+      buffer = buffer.substring(startIndex);
+    }
+  };
+
+  return {
+    // 添加新的内容片段
+    addContent: (content) => {
+      if (state === 'COMPLETE') return;
+
+      let remainingContent = content;
+
+      // 循环处理，直到没有更多的搜索结果标签
+      while (remainingContent && state !== 'COMPLETE') {
+        if (state === 'OUTSIDE') {
+          // 查找搜索结果开始标签
+          const startTagIndex = remainingContent.indexOf('<search_results>');
+          if (startTagIndex !== -1) {
+            state = 'INSIDE';
+            const afterStartTag = startTagIndex + '<search_results>'.length;
+            remainingContent = remainingContent.substring(afterStartTag);
+            continue; // 继续处理剩余内容
+          } else {
+            break; // 没有开始标签，退出循环
+          }
+        } else if (state === 'INSIDE') {
+          // 查找搜索结果结束标签
+          const endTagIndex = remainingContent.indexOf('</search_results>');
+          if (endTagIndex !== -1) {
+            // 添加结束标签之前的内容到缓冲区
+            buffer += remainingContent.substring(0, endTagIndex);
+            state = 'COMPLETE';
+
+            // 处理缓冲区中的所有JSON对象
+            extractJsonObjects();
+
+            // 更新剩余内容（结束标签之后的部分）
+            remainingContent = remainingContent.substring(endTagIndex + '</search_results>'.length);
+
+            // 如果还有剩余内容，可能包含新的搜索结果区间
+            if (remainingContent.includes('<search_results>')) {
+              state = 'OUTSIDE'; // 重置状态，准备处理下一个搜索结果区间
+              continue;
+            } else {
+              break; // 没有更多搜索结果，退出循环
+            }
+          } else {
+            // 没有结束标签，将所有内容添加到缓冲区
+            buffer += remainingContent;
+            break; // 等待更多数据
+          }
+        }
+      }
+
+      // 如果在搜索结果区间内，尝试提取JSON对象
+      if (state === 'INSIDE') {
+        extractJsonObjects();
+      }
+    },
+
+    // 获取当前解析出的搜索结果
+    getResults: () => {
+      // 按 doc_index 排序返回
+      return Array.from(searchResults.values()).sort((a, b) => a.id - b.id);
+    },
+
+    // 获取解析状态
+    getState: () => state,
+
+    // 重置解析器
+    reset: () => {
+      state = 'OUTSIDE';
+      buffer = '';
+      searchResults.clear();
+    }
+  };
+};
+
+// 兼容旧版本的 extractLawSearchResults 函数（用于非流式场景）
+const extractLawSearchResults = (content) => {
+  const parser = createLawSearchResultsParser();
+  parser.addContent(content);
+  return parser.getResults();
+};
+
+// 使用流式解析器的法律RAG内容解析函数
+const parseLawRagContentWithParser = (content, searchResultsParser) => {
+  if (!content) return { thinkContent: '', mainContent: '', searchResults: [] };
+
+  // 如果内容以 <think> 开头但还没有结束标签，暂时不显示任何内容
+  if (content.startsWith('<think>') && !content.includes('</think>')) {
+    return { thinkContent: '', mainContent: '', searchResults: [] };
   }
 
-  console.log('法律RAG - 提取到的搜索结果数量:', searchResults.length);
-  if (searchResults.length > 0) {
-    console.log('法律RAG - 搜索结果详情:', searchResults);
+  // 从解析器获取搜索结果
+  const searchResults = searchResultsParser.getResults();
+
+  // 查找<think>标签的位置
+  const thinkIndex = content.indexOf('<think>');
+  if (thinkIndex === -1) {
+    // 没有think标签，直接过滤其他内容
+    return {
+      thinkContent: '',
+      mainContent: filterLawMainContent(content),
+      searchResults: searchResults
+    };
   }
-  return searchResults;
+
+  // 从<think>开始截取内容
+  content = content.substring(thinkIndex);
+
+  // 提取think内容
+  const thinkMatch = content.match(/<think>([\s\S]*?)<\/think>/);
+  const thinkContent = thinkMatch ? thinkMatch[1].trim() : '';
+
+  // 提取think标签后的内容
+  const afterThink = content.replace(/<think>[\s\S]*?<\/think>/, '');
+  const mainContent = filterLawMainContent(afterThink);
+
+  return {
+    thinkContent,
+    mainContent,
+    searchResults
+  };
 };
 
 function LawChatInterface({ onToggleInterface }) {
@@ -534,46 +466,77 @@ function LawChatInterface({ onToggleInterface }) {
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
 
+      // 创建搜索结果解析器
+      const searchResultsParser = createLawSearchResultsParser();
+      let sseBuffer = ''; // SSE缓冲区，处理跨read()的半行问题
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
+        // 将新数据添加到缓冲区
+        sseBuffer += decoder.decode(value, { stream: true });
 
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6);
-            if (data === '[DONE]') {
-              // 流式传输完成，重置所有状态
-              setIsLoading(false);
-              setIsStreaming(false);
+        // 按SSE规范处理事件边界（\n\n分隔事件，\n分隔行）
+        const events = sseBuffer.split('\n\n');
 
-              // 如果消息已创建，解析最终内容
-              if (messageCreated) {
-                setMessages(prev => prev.map(msg => {
-                  if (msg.id === tempMessageId) {
-                    const parsedContent = parseLawRagContent(msg.rawContent || '');
-                    return {
-                      ...msg,
-                      isStreaming: false,
-                      thinkContent: parsedContent.thinkContent,
-                      mainContent: parsedContent.mainContent,
-                      searchResults: parsedContent.searchResults,
-                      content: parsedContent.mainContent
-                    };
-                  }
-                  return msg;
-                }));
+        // 保留最后一个可能不完整的事件
+        sseBuffer = events.pop() || '';
+
+        // 处理完整的事件
+        for (const event of events) {
+          if (!event.trim()) continue;
+
+          // 处理事件中的多条data行
+          const lines = event.split('\n');
+          let eventData = '';
+
+          for (const line of lines) {
+            const trimmedLine = line.trim();
+            if (trimmedLine.startsWith('data:')) {
+              // 提取data内容，处理可能的前缀空格
+              const dataContent = trimmedLine.slice(5).trim();
+              if (dataContent === '[DONE]') {
+                // 流式传输完成，重置所有状态
+                setIsLoading(false);
+                setIsStreaming(false);
+
+                // 如果消息已创建，解析最终内容
+                if (messageCreated) {
+                  setMessages(prev => prev.map(msg => {
+                    if (msg.id === tempMessageId) {
+                      const parsedContent = parseLawRagContentWithParser(msg.rawContent || '', searchResultsParser);
+                      return {
+                        ...msg,
+                        isStreaming: false,
+                        thinkContent: parsedContent.thinkContent,
+                        mainContent: parsedContent.mainContent,
+                        searchResults: parsedContent.searchResults,
+                        content: parsedContent.mainContent
+                      };
+                    }
+                    return msg;
+                  }));
+                }
+                break;
               }
-              break;
+              // 多条data行需要拼接
+              eventData += dataContent;
             }
+          }
 
+          // 解析拼接后的完整JSON
+          if (eventData) {
             try {
-              const parsed = JSON.parse(data);
+              const parsed = JSON.parse(eventData);
               if (parsed.choices && parsed.choices[0] && parsed.choices[0].delta && parsed.choices[0].delta.content) {
+                const deltaContent = parsed.choices[0].delta.content;
+
                 // 第一次收到内容时结束loading状态并创建消息
                 setIsLoading(false);
+
+                // 将新内容添加到搜索结果解析器
+                searchResultsParser.addContent(deltaContent);
 
                 if (!messageCreated) {
                   // 第一次接收到内容，创建消息并设置流式状态
@@ -584,19 +547,12 @@ function LawChatInterface({ onToggleInterface }) {
                     role: 'assistant',
                     isLawRagResponse: true,
                     isStreaming: true,
-                    rawContent: parsed.choices[0].delta.content,
+                    rawContent: deltaContent,
                     thinkContent: '',
                     mainContent: '',
-                    searchResults: [],
+                    searchResults: searchResultsParser.getResults(),
                     content: ''
                   };
-
-                  // 解析初始内容
-                  const parsedContent = parseLawRagContent(assistantMessage.rawContent);
-                  assistantMessage.thinkContent = parsedContent.thinkContent;
-                  assistantMessage.mainContent = parsedContent.mainContent;
-                  assistantMessage.searchResults = parsedContent.searchResults;
-                  assistantMessage.content = parsedContent.mainContent;
 
                   setMessages(prev => [...prev, assistantMessage]);
                   messageCreated = true;
@@ -604,9 +560,9 @@ function LawChatInterface({ onToggleInterface }) {
                   // 累积原始内容
                   setMessages(prev => prev.map(msg => {
                     if (msg.id === tempMessageId) {
-                      const newRawContent = (msg.rawContent || '') + parsed.choices[0].delta.content;
-                      // 实时解析内容用于显示
-                      const parsedContent = parseLawRagContent(newRawContent);
+                      const newRawContent = (msg.rawContent || '') + deltaContent;
+                      // 使用流式解析器解析内容
+                      const parsedContent = parseLawRagContentWithParser(newRawContent, searchResultsParser);
                       return {
                         ...msg,
                         rawContent: newRawContent,
