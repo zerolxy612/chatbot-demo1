@@ -3013,27 +3013,40 @@ div.law-rag-content div.law-compact-markdown li p {
   display: inline !important;
 }
 
-/* ========== 统一负边距方案 - 按您的要求 ========== */
+/* ========== 统一负边距方案 - 应用到所有RAG内容 ========== */
 .law-rag-content ul,
-.law-rag-content ol {
+.law-rag-content ol,
+.rag-content ul,
+.rag-content ol {
   margin: -18px 0 !important;
   padding-left: 20px !important;
   line-height: 1.1 !important;
 }
 
-.law-rag-content li {
+.law-rag-content li,
+.rag-content li {
   margin: -8px 0 !important;
+  line-height: 1.1 !important;
+}
+
+/* 段落紧凑样式 */
+.law-rag-content p,
+.rag-content p {
+  margin: -6px 0 !important;
   line-height: 1.1 !important;
 }
 
 /* 嵌套列表特殊处理 */
 .law-rag-content li ul,
-.law-rag-content li ol {
+.law-rag-content li ol,
+.rag-content li ul,
+.rag-content li ol {
   margin: -12px 0 !important;
   padding-left: 16px !important;
 }
 
-.law-rag-content li li {
+.law-rag-content li li,
+.rag-content li li {
   margin: -4px 0 !important;
 }
 
@@ -3043,14 +3056,21 @@ div.law-rag-content div.law-compact-markdown li p {
 .law-rag-content h3,
 .law-rag-content h4,
 .law-rag-content h5,
-.law-rag-content h6 {
+.law-rag-content h6,
+.rag-content h1,
+.rag-content h2,
+.rag-content h3,
+.rag-content h4,
+.rag-content h5,
+.rag-content h6 {
   margin: -10px 0 -6px 0 !important;
   line-height: 1.1 !important;
   font-weight: bold !important;
 }
 
 /* 列表项内的段落内联显示 */
-.law-rag-content li p {
+.law-rag-content li p,
+.rag-content li p {
   margin: 0 !important;
   display: inline !important;
 }
