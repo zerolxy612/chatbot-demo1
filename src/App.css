@@ -3013,64 +3013,52 @@ div.law-rag-content div.law-compact-markdown li p {
   display: inline !important;
 }
 
-/* ========== 统一负边距方案 - 应用到所有RAG内容 ========== */
-.law-rag-content ul,
-.law-rag-content ol,
+/* 统一负边距方案已移除（改为容器级 white-space 与温和正向间距） */
+
+/* ========== 修复 Markdown 过大间距的根因 ========== */
+/*
+  说明：.message-content 上的 `white-space: pre-wrap` 会被子元素继承，
+  ReactMarkdown 渲染出的 <p>、<li>、<h*> 等块级元素在继承 pre-wrap 后，
+  再叠加其自身默认外边距，导致视觉上“行距/段距过大”。
+
+  处理：在 Markdown 容器内（.rag-content / .law-rag-content）恢复为 normal，
+  并统一设置一个小且稳定的段落/列表间距，避免依赖负边距进行抵消。
+*/
+.rag-content,
+.law-rag-content {
+  white-space: normal !important; /* 终止从 .message-content 继承的 pre-wrap */
+}
+
+/* 统一、温和的 Markdown 间距（覆盖此前的负边距规则） */
+.rag-content p,
+.law-rag-content p {
+  margin: 4px 0 !important;
+}
+
 .rag-content ul,
-.rag-content ol {
-  margin: -18px 0 !important;
+.rag-content ol,
+.law-rag-content ul,
+.law-rag-content ol {
+  margin: 4px 0 !important;
   padding-left: 20px !important;
-  line-height: 1.1 !important;
 }
 
-.law-rag-content li,
-.rag-content li {
-  margin: -8px 0 !important;
-  line-height: 1.1 !important;
+.rag-content li,
+.law-rag-content li {
+  margin: 2px 0 !important;
 }
 
-/* 段落紧凑样式 */
-.law-rag-content p,
-.rag-content p {
-  margin: -6px 0 !important;
-  line-height: 1.1 !important;
-}
-
-/* 嵌套列表特殊处理 */
-.law-rag-content li ul,
-.law-rag-content li ol,
-.rag-content li ul,
-.rag-content li ol {
-  margin: -12px 0 !important;
-  padding-left: 16px !important;
-}
-
-.law-rag-content li li,
-.rag-content li li {
-  margin: -4px 0 !important;
-}
-
-/* 标题 */
-.law-rag-content h1,
-.law-rag-content h2,
-.law-rag-content h3,
-.law-rag-content h4,
-.law-rag-content h5,
-.law-rag-content h6,
 .rag-content h1,
 .rag-content h2,
 .rag-content h3,
 .rag-content h4,
 .rag-content h5,
-.rag-content h6 {
-  margin: -10px 0 -6px 0 !important;
-  line-height: 1.1 !important;
-  font-weight: bold !important;
-}
-
-/* 列表项内的段落内联显示 */
-.law-rag-content li p,
-.rag-content li p {
-  margin: 0 !important;
-  display: inline !important;
+.rag-content h6,
+.law-rag-content h1,
+.law-rag-content h2,
+.law-rag-content h3,
+.law-rag-content h4,
+.law-rag-content h5,
+.law-rag-content h6 {
+  margin: 6px 0 3px 0 !important;
 }
