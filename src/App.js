@@ -93,100 +93,242 @@ function App() {
     }
   };
 
-  // 从搜索结果中提取引用信息
-  const extractSearchResults = (content) => {
-    const searchResults = [];
 
-    // 提取 <search_results> 标签内的内容
-    const searchResultsMatch = content.match(/<search_results>([\s\S]*?)<\/search_results>/);
-    if (searchResultsMatch) {
-      const searchData = searchResultsMatch[1].trim();
 
-      // 解码Unicode字符的函数
-      const decodeText = (text) => {
-        if (!text) return text;
-        return text.replace(/\\u([0-9a-fA-F]{4})/g, (_, code) => {
-          return String.fromCharCode(parseInt(code, 16));
-        });
-      };
+  // 流式搜索结果解析器 - 使用状态机处理 <search_results> 区间
+  const createSearchResultsParser = () => {
+    let state = 'OUTSIDE'; // 'OUTSIDE' | 'INSIDE' | 'COMPLETE'
+    let buffer = '';
+    let searchResults = new Map(); // 使用 Map 以 doc_index 为 key 去重
 
+    // 解码Unicode字符的函数
+    const decodeText = (text) => {
+      if (!text) return text;
+      return text.replace(/\\u([0-9a-fA-F]{4})/g, (_, code) => {
+        return String.fromCharCode(parseInt(code, 16));
+      });
+    };
+
+    // 处理单个搜索结果JSON对象
+    const processSearchResult = (jsonStr) => {
       try {
-        // 尝试解析为JSON数组
-        const results = JSON.parse(`[${searchData}]`);
-        if (Array.isArray(results)) {
-          results.forEach(result => {
-            if (result && result.doc_index) {
-              searchResults.push({
-                id: result.doc_index,
-                title: decodeText(result.title) || '搜索结果',
-                snippet: decodeText(result.snippet || result.result) || '',
-                url: result.url || '',
-                source: decodeText(result.source) || 'Unknown',
-                score: result.score || 0
-              });
-            }
+        // 第一层解析：解析转义后的JSON字符串
+        const unescapedJson = JSON.parse(jsonStr);
+
+        // 第二层解析：解析真正的搜索结果对象
+        if (typeof unescapedJson === 'string') {
+          const result = JSON.parse(unescapedJson);
+          if (result && result.doc_index) {
+            searchResults.set(result.doc_index, {
+              id: result.doc_index,
+              title: decodeText(result.title) || '搜索结果',
+              snippet: decodeText(result.snippet || result.result) || '',
+              url: result.url || '',
+              source: decodeText(result.source || result.kb) || 'Unknown',
+              score: result.score || 0
+            });
+
+          }
+        } else if (unescapedJson && unescapedJson.doc_index) {
+          // 直接是对象的情况
+          searchResults.set(unescapedJson.doc_index, {
+            id: unescapedJson.doc_index,
+            title: decodeText(unescapedJson.title) || '搜索结果',
+            snippet: decodeText(unescapedJson.snippet || unescapedJson.result) || '',
+            url: unescapedJson.url || '',
+            source: decodeText(unescapedJson.source || unescapedJson.kb) || 'Unknown',
+            score: unescapedJson.score || 0
           });
+
         }
       } catch (e) {
-        // JSON数组解析失败，尝试逐行解析JSON对象
+        console.warn('❌ 解析搜索结果失败:', e.message, '原始JSON:', jsonStr.substring(0, 100));
+      }
+    };
 
-        // 按行分割，每行可能是一个JSON对象
-        const lines = searchData.split('\n').filter(line => line.trim());
+    // 尝试从缓冲区中提取完整的JSON对象
+    const extractJsonObjects = () => {
+      let startIndex = 0;
 
-        lines.forEach(line => {
-          try {
-            const result = JSON.parse(line);
-            if (result && result.doc_index) {
-              searchResults.push({
-                id: result.doc_index,
-                title: decodeText(result.title) || '搜索结果',
-                snippet: decodeText(result.snippet || result.result) || '',
-                url: result.url || '',
-                source: decodeText(result.source) || 'Unknown',
-                score: result.score || 0
-              });
-            }
-          } catch (lineError) {
-            // 静默处理解析错误，避免控制台噪音
-            // console.warn('解析行失败:', line, lineError);
+      while (startIndex < buffer.length) {
+        // 查找下一个 JSON 对象的开始
+        const jsonStart = buffer.indexOf('{', startIndex);
+        if (jsonStart === -1) break;
+
+        // 使用括号匹配找到完整的JSON对象
+        let braceCount = 0;
+        let jsonEnd = -1;
+        let inString = false;
+        let escaped = false;
+
+        for (let i = jsonStart; i < buffer.length; i++) {
+          const char = buffer[i];
+
+          if (escaped) {
+            escaped = false;
+            continue;
           }
-        });
 
-        // 如果还是失败，尝试正则表达式提取
-        if (searchResults.length === 0) {
-          // 使用正则表达式匹配JSON对象
-          const jsonMatches = searchData.match(/\{[^}]*"doc_index"[^}]*\}/g);
-          if (jsonMatches) {
-            jsonMatches.forEach(match => {
-              try {
-                const result = JSON.parse(match);
-                if (result && result.doc_index) {
-                  searchResults.push({
-                    id: result.doc_index,
-                    title: decodeText(result.title) || '搜索结果',
-                    snippet: decodeText(result.snippet || result.result) || '',
-                    url: result.url || '',
-                    source: decodeText(result.source) || 'Unknown',
-                    score: result.score || 0
-                  });
-                }
-              } catch (matchError) {
-                // 静默处理正则匹配解析错误
-                // console.warn('正则匹配解析失败:', match, matchError);
+          if (char === '\\' && inString) {
+            escaped = true;
+            continue;
+          }
+
+          if (char === '"') {
+            inString = !inString;
+            continue;
+          }
+
+          if (!inString) {
+            if (char === '{') {
+              braceCount++;
+            } else if (char === '}') {
+              braceCount--;
+              if (braceCount === 0) {
+                jsonEnd = i;
+                break;
               }
-            });
+            }
           }
         }
-      }
-    }
 
-    return searchResults;
+        if (jsonEnd !== -1) {
+          // 找到完整的JSON对象
+          const jsonStr = buffer.substring(jsonStart, jsonEnd + 1);
+          processSearchResult(jsonStr);
+          startIndex = jsonEnd + 1;
+        } else {
+          // 没有找到完整的JSON对象，等待更多数据
+          break;
+        }
+      }
+
+      // 清理已处理的部分
+      if (startIndex > 0) {
+        buffer = buffer.substring(startIndex);
+      }
+    };
+
+    return {
+      // 添加新的内容片段
+      addContent: (content) => {
+        if (state === 'COMPLETE') return;
+
+        let remainingContent = content;
+
+        // 循环处理，直到没有更多的搜索结果标签
+        while (remainingContent && state !== 'COMPLETE') {
+          if (state === 'OUTSIDE') {
+            // 查找搜索结果开始标签
+            const startTagIndex = remainingContent.indexOf('<search_results>');
+            if (startTagIndex !== -1) {
+              state = 'INSIDE';
+              const afterStartTag = startTagIndex + '<search_results>'.length;
+              remainingContent = remainingContent.substring(afterStartTag);
+
+              continue; // 继续处理剩余内容
+            } else {
+              break; // 没有开始标签，退出循环
+            }
+          } else if (state === 'INSIDE') {
+            // 查找搜索结果结束标签
+            const endTagIndex = remainingContent.indexOf('</search_results>');
+            if (endTagIndex !== -1) {
+              // 添加结束标签之前的内容到缓冲区
+              buffer += remainingContent.substring(0, endTagIndex);
+              state = 'COMPLETE';
+
+
+              // 处理缓冲区中的所有JSON对象
+              extractJsonObjects();
+
+              // 更新剩余内容（结束标签之后的部分）
+              remainingContent = remainingContent.substring(endTagIndex + '</search_results>'.length);
+
+              // 如果还有剩余内容，可能包含新的搜索结果区间
+              if (remainingContent.includes('<search_results>')) {
+                state = 'OUTSIDE'; // 重置状态，准备处理下一个搜索结果区间
+                continue;
+              } else {
+                break; // 没有更多搜索结果，退出循环
+              }
+            } else {
+              // 没有结束标签，将所有内容添加到缓冲区
+              buffer += remainingContent;
+              break; // 等待更多数据
+            }
+          }
+        }
+
+        // 如果在搜索结果区间内，尝试提取JSON对象
+        if (state === 'INSIDE') {
+          extractJsonObjects();
+        }
+      },
+
+      // 获取当前解析出的搜索结果
+      getResults: () => {
+        // 按 doc_index 排序返回
+        return Array.from(searchResults.values()).sort((a, b) => a.id - b.id);
+      },
+
+      // 获取解析状态
+      getState: () => state,
+
+      // 重置解析器
+      reset: () => {
+        state = 'OUTSIDE';
+        buffer = '';
+        searchResults.clear();
+      }
+    };
+  };
+
+  // 兼容旧版本的 extractSearchResults 函数（用于非流式场景）
+  const extractSearchResults = (content) => {
+    const parser = createSearchResultsParser();
+    parser.addContent(content);
+    return parser.getResults();
   };
 
   // 内容解析函数 - 分离think内容和正文内容
   const parseContent = (content) => {
     // 提取搜索结果
     const searchResults = extractSearchResults(content);
+
+    // 查找<think>标签的位置
+    const thinkIndex = content.indexOf('<think>');
+    if (thinkIndex === -1) {
+      // 没有think标签，直接过滤其他内容
+      return {
+        thinkContent: '',
+        mainContent: filterMainContent(content),
+        searchResults: searchResults
+      };
+    }
+
+    // 从<think>开始截取内容
+    content = content.substring(thinkIndex);
+
+    // 提取think内容
+    const thinkMatch = content.match(/<think>([\s\S]*?)<\/think>/);
+    const thinkContent = thinkMatch ? thinkMatch[1].trim() : '';
+
+    // 提取think标签后的内容
+    const afterThink = content.replace(/<think>[\s\S]*?<\/think>/, '');
+    const mainContent = filterMainContent(afterThink);
+
+    return {
+      thinkContent,
+      mainContent,
+      searchResults: searchResults
+    };
+  };
+
+  // 使用流式解析器的内容解析函数
+  const parseContentWithParser = (content, searchResultsParser) => {
+    // 从解析器获取搜索结果
+    const searchResults = searchResultsParser.getResults();
 
     // 查找<think>标签的位置
     const thinkIndex = content.indexOf('<think>');
@@ -304,6 +446,8 @@ function App() {
         msg.id === tempMessageId ? assistantMessage : msg
       ));
 
+      let sseBuffer = ''; // SSE缓冲区，处理跨read()的半行问题
+
       while (true) {
         // 检查是否被中止
         if (abortControllerRef.current?.signal.aborted) {
@@ -313,17 +457,40 @@ function App() {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
+        // 将新数据添加到缓冲区
+        sseBuffer += decoder.decode(value, { stream: true });
 
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6);
-            if (data === '[DONE]') {
-              break;
+        // 按SSE规范处理事件边界（\n\n分隔事件，\n分隔行）
+        const events = sseBuffer.split('\n\n');
+
+        // 保留最后一个可能不完整的事件
+        sseBuffer = events.pop() || '';
+
+        // 处理完整的事件
+        for (const event of events) {
+          if (!event.trim()) continue;
+
+          // 处理事件中的多条data行
+          const lines = event.split('\n');
+          let eventData = '';
+
+          for (const line of lines) {
+            const trimmedLine = line.trim();
+            if (trimmedLine.startsWith('data:')) {
+              // 提取data内容，处理可能的前缀空格
+              const dataContent = trimmedLine.slice(5).trim();
+              if (dataContent === '[DONE]') {
+                break;
+              }
+              // 多条data行需要拼接
+              eventData += dataContent;
             }
+          }
+
+          // 解析拼接后的完整JSON
+          if (eventData) {
             try {
-              const parsed = JSON.parse(data);
+              const parsed = JSON.parse(eventData);
               if (parsed.choices && parsed.choices[0] && parsed.choices[0].delta && parsed.choices[0].delta.content) {
                 // 累积原始内容
                 assistantMessage.rawContent += parsed.choices[0].delta.content;
@@ -340,7 +507,7 @@ function App() {
                 ));
               }
             } catch (e) {
-              // Ignore parsing errors for incomplete JSON
+              console.warn('❌ 普通聊天SSE JSON解析失败:', e.message, '原始数据:', eventData.substring(0, 100));
             }
           }
         }
@@ -975,6 +1142,9 @@ function App() {
       const tempMessageId = Date.now().toString();
       let messageCreated = false;
 
+      // 创建搜索结果解析器
+      const searchResultsParser = createSearchResultsParser();
+
       const response = await fetch('/api/law/rag/v1/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -992,6 +1162,7 @@ function App() {
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
+      let sseBuffer = ''; // SSE缓冲区，处理跨read()的半行问题
 
       while (true) {
         // 检查是否被中止
@@ -1002,22 +1173,49 @@ function App() {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
+        // 将新数据添加到缓冲区
+        sseBuffer += decoder.decode(value, { stream: true });
 
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6);
-            if (data === '[DONE]') {
-              setIsLawRagLoading(false);
-              break;
+        // 按SSE规范处理事件边界（\n\n分隔事件，\n分隔行）
+        const events = sseBuffer.split('\n\n');
+
+        // 保留最后一个可能不完整的事件
+        sseBuffer = events.pop() || '';
+
+        // 处理完整的事件
+        for (const event of events) {
+          if (!event.trim()) continue;
+
+          // 处理事件中的多条data行
+          const lines = event.split('\n');
+          let eventData = '';
+
+          for (const line of lines) {
+            const trimmedLine = line.trim();
+            if (trimmedLine.startsWith('data:')) {
+              // 提取data内容，处理可能的前缀空格
+              const dataContent = trimmedLine.slice(5).trim();
+              if (dataContent === '[DONE]') {
+                setIsLawRagLoading(false);
+                break;
+              }
+              // 多条data行需要拼接
+              eventData += dataContent;
             }
+          }
 
+          // 解析拼接后的完整JSON
+          if (eventData) {
             try {
-              const parsed = JSON.parse(data);
+              const parsed = JSON.parse(eventData);
               if (parsed.choices?.[0]?.delta?.content) {
+                const deltaContent = parsed.choices[0].delta.content;
+
                 // 一旦开始接收内容，立即清除加载状态
                 setIsLawRagLoading(false);
+
+                // 将新内容添加到搜索结果解析器
+                searchResultsParser.addContent(deltaContent);
 
                 if (!messageCreated) {
                   const assistantMessage = {
@@ -1025,11 +1223,11 @@ function App() {
                     role: 'assistant',
                     isLawRagResponse: true,
                     isStreaming: true,
-                    rawContent: parsed.choices[0].delta.content,
-                    content: parsed.choices[0].delta.content,
+                    rawContent: deltaContent,
+                    content: deltaContent,
                     thinkContent: '',
                     mainContent: '',
-                    searchResults: []
+                    searchResults: searchResultsParser.getResults()
                   };
 
                   setMessages(prev => [...prev, assistantMessage]);
@@ -1037,10 +1235,10 @@ function App() {
                 } else {
                   setMessages(prev => prev.map(msg => {
                     if (msg.id === tempMessageId) {
-                      const newRawContent = (msg.rawContent || '') + parsed.choices[0].delta.content;
+                      const newRawContent = (msg.rawContent || '') + deltaContent;
 
-                      // 解析内容
-                      const parsedContent = parseContent(newRawContent);
+                      // 解析内容（使用改进的解析逻辑）
+                      const parsedContent = parseContentWithParser(newRawContent, searchResultsParser);
 
                       return {
                         ...msg,
@@ -1056,7 +1254,7 @@ function App() {
                 }
               }
             } catch (e) {
-              // 忽略JSON解析错误
+              console.warn('❌ SSE JSON解析失败:', e.message, '原始数据:', eventData.substring(0, 100));
             }
           }
         }
@@ -1265,6 +1463,8 @@ function App() {
                             </MarkdownWithCitations>
                           </div>
                         )}
+
+
                       </div>
                     ) : message.isLawMultisearchResponse ? (
                       // 法律多源检索响应显示 - 已移除，法律界面不再使用
