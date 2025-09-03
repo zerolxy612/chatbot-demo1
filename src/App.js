@@ -1511,7 +1511,9 @@ function App() {
                           <span className="rag-label">RAG查询结果</span>
                         </div>
                         <div className="rag-content" data-streaming={message.isStreaming}>
-                          <ReactMarkdown>{message.content}</ReactMarkdown>
+                          <div className="law-compact-markdown">
+                            <ReactMarkdown>{message.content}</ReactMarkdown>
+                          </div>
                         </div>
 
                         {/* TTFT 时间显示 */}
