@@ -1029,7 +1029,22 @@ function App() {
               `${value.toFixed(0)}` :
               `${chartData.stockInfo?.currency || ''} ${value.toFixed(2)}` :
             undefined
-        }
+        },
+        // 为股票图表设置纵轴范围为最低点和最高点，突出显示波动
+        min: isStockChart ? (() => {
+          const minValue = chartData.stockInfo.lowestPrice;
+          const maxValue = chartData.stockInfo.highestPrice;
+          const range = maxValue - minValue;
+          // 在最低点基础上留出5%的缓冲空间
+          return Math.max(0, minValue - range * 0.05);
+        })() : undefined,
+        max: isStockChart ? (() => {
+          const minValue = chartData.stockInfo.lowestPrice;
+          const maxValue = chartData.stockInfo.highestPrice;
+          const range = maxValue - minValue;
+          // 在最高点基础上留出5%的缓冲空间
+          return maxValue + range * 0.05;
+        })() : undefined
       },
       series: [{
         data: chartData.yAxis,
