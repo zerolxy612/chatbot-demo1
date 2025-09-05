@@ -1414,7 +1414,9 @@ function App() {
                               <span className="think-label">思考过程</span>
                             </div>
                             <div className="think-text">
-                              <ReactMarkdown>{message.thinkContent}</ReactMarkdown>
+                              <MarkdownWithCitations searchResults={message.searchResults || []} messageIndex={index}>
+                                {message.thinkContent}
+                              </MarkdownWithCitations>
                             </div>
                           </div>
                         )}
@@ -1585,7 +1587,9 @@ function App() {
                               <span className="think-label">思考过程</span>
                             </div>
                             <div className="think-text">
-                              <ReactMarkdown>{message.thinkContent}</ReactMarkdown>
+                              <MarkdownWithCitations searchResults={message.searchResults || []} messageIndex={index}>
+                                {message.thinkContent}
+                              </MarkdownWithCitations>
                             </div>
                           </div>
                         )}
