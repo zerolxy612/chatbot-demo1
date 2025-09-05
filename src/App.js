@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import './App.css';
 import { callOpenAI, callStockAPI } from './api';
 import ChartComponent from './ChartComponent';
@@ -648,6 +649,7 @@ function App() {
     return (
       <div>
         <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
           components={{
             // 处理段落
             p: ({ children }) => <p>{processContent(children)}</p>,
@@ -668,9 +670,48 @@ function App() {
             div: ({ children }) => <div>{processContent(children)}</div>,
             // 处理引用块
             blockquote: ({ children }) => <blockquote>{processContent(children)}</blockquote>,
-            // 处理表格单元格
-            td: ({ children }) => <td>{processContent(children)}</td>,
-            th: ({ children }) => <th>{processContent(children)}</th>
+            // 处理表格相关元素
+            table: ({ children }) => (
+              <table className="markdown-table" style={{
+                borderCollapse: 'collapse',
+                width: '100%',
+                margin: '12px 0',
+                border: '1px solid #ddd',
+                fontSize: '14px'
+              }}>
+                {children}
+              </table>
+            ),
+            thead: ({ children }) => (
+              <thead style={{ backgroundColor: '#f5f5f5' }}>
+                {children}
+              </thead>
+            ),
+            tbody: ({ children }) => <tbody>{children}</tbody>,
+            tr: ({ children }) => <tr>{children}</tr>,
+            td: ({ children }) => (
+              <td style={{
+                padding: '8px 12px',
+                border: '1px solid #ddd',
+                textAlign: 'left',
+                verticalAlign: 'top',
+                lineHeight: '1.4'
+              }}>
+                {processContent(children)}
+              </td>
+            ),
+            th: ({ children }) => (
+              <th style={{
+                padding: '8px 12px',
+                border: '1px solid #ddd',
+                textAlign: 'left',
+                fontWeight: 'bold',
+                backgroundColor: '#f8f9fa',
+                lineHeight: '1.4'
+              }}>
+                {processContent(children)}
+              </th>
+            )
           }}
         >
           {children}
@@ -1491,7 +1532,7 @@ function App() {
                           <span className="law-multisearch-label">法律检索结果</span>
                         </div>
                         <div className="law-multisearch-content">
-                          <ReactMarkdown>{message.content}</ReactMarkdown>
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
                         </div>
 
                         {/* 显示检索结果 */}
@@ -1528,9 +1569,9 @@ function App() {
                           <span className="rag-label">RAG查询结果</span>
                         </div>
                         <div className="rag-content" data-streaming={message.isStreaming}>
-                          <div className="law-compact-markdown">
-                            <ReactMarkdown>{message.content}</ReactMarkdown>
-                          </div>
+                          <MarkdownWithCitations searchResults={[]} messageIndex={index}>
+                            {message.content}
+                          </MarkdownWithCitations>
                         </div>
 
                         {/* TTFT 时间显示 */}
@@ -1638,7 +1679,7 @@ function App() {
 
                         {/* 主要内容显示 */}
                         {message.mainContent && (
-                          <div className="main-content compact">
+                          <div className="rag-content" data-streaming={message.isStreaming}>
                             <MarkdownWithCitations searchResults={message.searchResults || []} messageIndex={index}>
                               {message.mainContent}
                             </MarkdownWithCitations>
@@ -1647,7 +1688,7 @@ function App() {
 
                         {/* 兼容旧格式 */}
                         {!message.thinkContent && !message.mainContent && message.content && (
-                          <div className="main-content compact">
+                          <div className="rag-content" data-streaming={message.isStreaming}>
                             <MarkdownWithCitations searchResults={message.searchResults || []} messageIndex={index}>
                               {message.content}
                             </MarkdownWithCitations>
@@ -1658,7 +1699,7 @@ function App() {
                   </div>
                 ) : (
                   // 用户消息
-                  <ReactMarkdown>{message.content}</ReactMarkdown>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
                 )}
               </div>
             </div>

@@ -3092,3 +3092,51 @@ div.law-rag-content div.law-compact-markdown li p {
 .law-rag-content h6 {
   margin: 6px 0 3px 0 !important;
 }
+
+/* RAG输出表格样式优化 */
+.rag-content .markdown-table,
+.law-rag-content .markdown-table {
+  border-collapse: collapse !important;
+  width: 100% !important;
+  margin: 12px 0 !important;
+  border: 1px solid #ddd !important;
+  font-size: 14px !important;
+  background: white !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+}
+
+.rag-content .markdown-table thead,
+.law-rag-content .markdown-table thead {
+  background-color: #f8f9fa !important;
+}
+
+.rag-content .markdown-table th,
+.law-rag-content .markdown-table th {
+  padding: 10px 12px !important;
+  border: 1px solid #ddd !important;
+  text-align: left !important;
+  font-weight: 600 !important;
+  background-color: #f8f9fa !important;
+  line-height: 1.4 !important;
+  color: #333 !important;
+}
+
+.rag-content .markdown-table td,
+.law-rag-content .markdown-table td {
+  padding: 8px 12px !important;
+  border: 1px solid #ddd !important;
+  text-align: left !important;
+  vertical-align: top !important;
+  line-height: 1.4 !important;
+  color: #333 !important;
+}
+
+.rag-content .markdown-table tr:nth-child(even),
+.law-rag-content .markdown-table tr:nth-child(even) {
+  background-color: #f9f9f9 !important;
+}
+
+.rag-content .markdown-table tr:hover,
+.law-rag-content .markdown-table tr:hover {
+  background-color: #f0f8ff !important;
+}
